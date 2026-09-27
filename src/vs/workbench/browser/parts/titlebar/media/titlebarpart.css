@@ -133,8 +133,8 @@
 }
 
 /* Window identity badge (othcloud): auxiliary windows carry a numbered accent badge, and the
-   same accent is painted along the bottom of their title bar (see titlebarPart.ts) so that
-   several pulled out windows can be told apart at a glance. */
+ * same accent is painted along the bottom of their title bar (see titlebarPart.ts) so that
+ * several pulled out windows can be told apart at a glance. */
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-identity {
 	flex: 0 0 auto;
 	display: flex;
@@ -282,7 +282,7 @@
 
 /* App Icon */
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon {
-	width: 35px;
+	width: auto;
 	height: 100%;
 	position: relative;
 	z-index: 2500;
@@ -290,11 +290,23 @@
 	order: 1;
 }
 
+/* othcloud: the app icon is the product name as text rather than a logo */
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
-	background-image: url('../../../media/oth.png');
-	background-repeat: no-repeat;
-	background-position: center center;
-	background-size: 18px;
+	display: flex;
+	align-items: center;
+	padding: 0 12px 0 14px;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+	color: var(--vscode-titleBar-activeForeground);
+	text-decoration: none;
+	user-select: none;
+	-webkit-app-region: drag;
+}
+
+.monaco-workbench .part.titlebar.inactive > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
+	color: var(--vscode-titleBar-inactiveForeground);
 }
 
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon.codicon {
@@ -486,4 +498,9 @@
 	padding: 0 2px;
 	border-radius: 16px;
 	text-align: center;
+}
+
+/* othcloud: the hamburger's open menu must never be part of the window-drag region */
+.monaco-workbench .part.titlebar .menubar .menubar-menu-items-holder {
+	-webkit-app-region: no-drag;
 }

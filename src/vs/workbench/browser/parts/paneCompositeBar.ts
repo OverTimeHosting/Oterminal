@@ -73,6 +73,12 @@ export interface IPaneCompositeBarOptions {
 	readonly placeholderViewContainersKey: string;
 	readonly viewContainersWorkspaceStateKey: string;
 	readonly icon: boolean;
+	/** Show the composite's name next to its icon (only meaningful with `icon`). */
+	readonly showLabels?: boolean;
+	/** Shorter names to show under the icon for specific view containers. */
+	readonly labelOverrides?: Readonly<Record<string, string>>;
+	/** View containers this bar never shows as buttons (they stay reachable by command). */
+	readonly compositeFilter?: (viewContainerId: string) => boolean;
 	readonly compact?: boolean;
 	readonly iconSize: number;
 	readonly recomputeSizes: boolean;
@@ -133,6 +139,9 @@ export class PaneCompositeBar extends Disposable {
 	private createCompositeBar(cachedItems: ICompositeBarItem[]) {
 		return this._register(this.instantiationService.createInstance(CompositeBar, cachedItems, {
 			icon: this.options.icon,
+			showLabels: this.options.showLabels,
+			filter: this.options.compositeFilter,
+			labelOverrides: this.options.labelOverrides,
 			compact: this.options.compact,
 			orientation: this.options.orientation,
 			activityHoverOptions: this.options.activityHoverOptions,

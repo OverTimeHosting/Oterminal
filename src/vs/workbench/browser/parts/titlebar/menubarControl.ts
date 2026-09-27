@@ -85,15 +85,7 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	order: 4
 });
 
-MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
-	submenu: MenuId.MenubarGoMenu,
-	title: {
-		value: 'Go',
-		original: 'Go',
-		mnemonicTitle: localize({ key: 'mGoto', comment: ['&& denotes a mnemonic'] }, "&&Go")
-	},
-	order: 5
-});
+// othcloud: the Go menu is intentionally not part of the menu bar.
 
 MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	submenu: MenuId.MenubarTerminalMenu,
@@ -748,6 +740,9 @@ export class CustomMenubarControl extends MenubarControl {
 			getKeybinding: (action) => this.keybindingService.lookupKeybinding(action.id),
 			alwaysOnMnemonics: this.alwaysOnMnemonics,
 			compactMode: this.currentCompactMenuMode,
+			// othcloud: the compact menu bar lives in the title bar, so its menu opens underneath
+			// the hamburger rather than beside it (where it would overlap the window-drag region).
+			compactMenuOpensBelow: true,
 			getCompactMenuActions: () => {
 				if (!isWeb) {
 					return []; // only for web

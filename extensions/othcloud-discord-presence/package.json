@@ -33,7 +33,7 @@
 				},
 				"othcloud.discord.applicationName": {
 					"type": "string",
-					"default": "OTHCloud Terminal",
+					"default": "OTerminal",
 					"description": "%config.applicationName%"
 				},
 				"othcloud.discord.detailsTemplate": {

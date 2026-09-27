@@ -123,6 +123,68 @@ include token metadata (name="Othcloud Terminal", createdAt, lastUsedAt).
 - Validates the token. On `401`, the desktop signs the user out and re-prompts.
 - Used on app start to confirm the cached token is still good.
 
+### `GET /api/desktop/profiles`
+
+**Auth:** `Authorization: Bearer <token>`.
+
+**Response:** `200 OK`
+```json
+{
+  "profiles": [
+    {
+      "id": "dtp_aBcD...",
+      "name": "claude",
+      "platform": "all",
+      "path": "claude",
+      "args": ["--dangerously-skip-permissions"],
+      "env": null,
+      "icon": "sparkle",
+      "color": "terminal.ansiMagenta",
+      "sortOrder": 0,
+      "updatedAt": "2026-09-26T20:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Behavior:**
+- Returns every terminal profile the user keeps on othcloud.xyz, across all
+  platforms. `platform` is one of `all`, `linux`, `osx`, `windows`.
+- The desktop writes the ones matching its platform (or `all`) into
+  `terminal.integrated.profiles.<platform>` on start-up, after sign-in, and on
+  "Sync Terminal Profiles from OTHCloud". They then show up wherever the
+  built-in profiles do: the "+" dropdown and the New Terminal submenu of the
+  terminal context menus.
+- Profiles a previous sync added and that are no longer returned are removed
+  from the local settings again. Profiles the user defined locally are never
+  touched. Signing out removes every synced profile.
+- Managed on the website under account settings → Preferences → Terminal
+  profiles.
+
+### `POST /api/desktop/profiles`
+
+**Auth:** `Authorization: Bearer <token>`.
+
+**Body:** the profile without `id`/`updatedAt` (see above). `name` and `path`
+are required; `args`, `env`, `icon`, `color` are optional; `platform`
+defaults to `all`.
+
+**Response:** `201 Created` with the stored profile, or `200 OK` when a
+profile with the same `name` and `platform` already existed and was replaced.
+`400 { "error": "invalid_profile", "issues": [...] }` on validation errors.
+
+Used by the desktop's "Save Terminal Profile to OTHCloud..." command, which
+uploads one of the locally configured profiles.
+
+### `DELETE /api/desktop/profiles/<id>`
+
+**Auth:** `Authorization: Bearer <token>`.
+
+**Response:** `200 { "ok": true }`, or `404 { "error": "not_found" }` when
+the profile does not exist or belongs to someone else.
+
+Used by the desktop's "Remove Terminal Profile from OTHCloud..." command.
+
 ### GitHub repository creation (desktop-side, no new endpoint)
 
 The **GitHub Repos** sidebar can create repositories directly. It does **not**

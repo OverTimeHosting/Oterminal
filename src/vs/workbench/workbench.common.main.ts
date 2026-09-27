@@ -179,8 +179,8 @@ import './services/accounts/browser/defaultAccount.js';
 import './contrib/telemetry/browser/telemetry.contribution.js';
 
 // Title Bar Activity Bar (renders the side bar's activity icons in the window title bar)
-import './contrib/titleBarActivityBar/browser/titleBarActivityBar.contribution.js';
 import './contrib/othcloudLayout/browser/scmGraphInPanel.contribution.js';
+import './contrib/othcloudLayout/browser/terminalLocation.contribution.js';
 
 // Preferences
 import './contrib/preferences/browser/preferences.contribution.js';

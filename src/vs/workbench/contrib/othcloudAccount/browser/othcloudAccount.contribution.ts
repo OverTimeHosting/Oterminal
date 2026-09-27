@@ -21,6 +21,7 @@ import { OthcloudEmbeddedSession } from './othcloudEmbeddedSession.js';
 import { OthcloudAccountMenuContribution } from './othcloudAccountMenu.js';
 import { OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
 import { registerOthcloudAccountSidebar } from './othcloudAccountSidebar.js';
+import { OthcloudTerminalProfilesContribution } from './othcloudTerminalProfiles.js';
 import { getOthcloudBaseUrl } from './othcloudAccountClient.js';
 
 const SIGN_IN_COMMAND = 'othcloud.account.signIn';
@@ -40,6 +41,14 @@ registerWorkbenchContribution2(
 	OthcloudAccountMenuContribution.ID,
 	OthcloudAccountMenuContribution,
 	WorkbenchPhase.AfterRestored,
+);
+
+// Pulls the user's othcloud.xyz terminal profiles into the local terminal
+// settings once the workbench is up, and again whenever they sign in or out.
+registerWorkbenchContribution2(
+	OthcloudTerminalProfilesContribution.ID,
+	OthcloudTerminalProfilesContribution,
+	WorkbenchPhase.Eventually,
 );
 
 // `BlockRestore`, for the same reason as the GitHub provider below: the sidebar
@@ -68,28 +77,28 @@ registerWorkbenchContribution2(
 );
 
 /**
- * Pins `workbench.activityBar.location` to `hidden` on workbench start. The activity bar's view
- * containers are rendered in the window title bar instead (see the `titleBarActivityBar`
- * contribution), so the native bar at the side-bar top is hidden to avoid showing both. This also
- * catches the case where the user previously changed the setting and wants the Othcloud look back.
+ * Pins `workbench.activityBar.location` to `top` on workbench start, so the primary side bar's
+ * view containers (Explorer, Search, Extensions, OTHCloud, ...) are a row of buttons across the
+ * top of the side bar. This also catches the case where the user previously changed the setting
+ * and wants the Othcloud look back.
  */
-class ForceActivityBarHiddenContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.othcloudForceActivityBarHidden';
+class ForceActivityBarTopContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.othcloudForceActivityBarTop';
 
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super();
 		const current = configurationService.getValue('workbench.activityBar.location');
-		if (current !== 'hidden') {
-			void configurationService.updateValue('workbench.activityBar.location', 'hidden', ConfigurationTarget.USER);
+		if (current !== 'top') {
+			void configurationService.updateValue('workbench.activityBar.location', 'top', ConfigurationTarget.USER);
 		}
 	}
 }
 
 registerWorkbenchContribution2(
-	ForceActivityBarHiddenContribution.ID,
-	ForceActivityBarHiddenContribution,
+	ForceActivityBarTopContribution.ID,
+	ForceActivityBarTopContribution,
 	WorkbenchPhase.AfterRestored,
 );
 

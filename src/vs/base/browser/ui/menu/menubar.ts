@@ -33,6 +33,12 @@ export interface IMenuBarOptions {
 	getKeybinding?: (action: IAction) => ResolvedKeybinding | undefined;
 	alwaysOnMnemonics?: boolean;
 	compactMode?: IMenuDirection;
+	/**
+	 * Open the compact (hamburger) menu underneath its button instead of beside it. Used when
+	 * the compact menu bar sits in the title bar, where a menu opening beside the button would
+	 * overlap the title bar's window-drag region and swallow clicks on its first rows.
+	 */
+	compactMenuOpensBelow?: boolean;
 	actionRunner?: IActionRunner;
 	getCompactMenuActions?: () => IAction[];
 }
@@ -1013,7 +1019,11 @@ export class MenuBar extends Disposable {
 		const titleBoundingRect = customMenu.titleElement.getBoundingClientRect();
 		const titleBoundingRectZoom = DOM.getDomNodeZoomLevel(customMenu.titleElement);
 
-		if (this.options.compactMode?.horizontal === HorizontalDirection.Right) {
+		const compactOpensBelow = this.isCompact && !!this.options.compactMenuOpensBelow;
+
+		if (compactOpensBelow) {
+			menuHolder.style.left = `${titleBoundingRect.left * titleBoundingRectZoom}px`;
+		} else if (this.options.compactMode?.horizontal === HorizontalDirection.Right) {
 			menuHolder.style.left = `${titleBoundingRect.left + this.container.clientWidth}px`;
 		} else if (this.options.compactMode?.horizontal === HorizontalDirection.Left) {
 			const windowWidth = DOM.getWindow(this.container).innerWidth;
@@ -1023,7 +1033,9 @@ export class MenuBar extends Disposable {
 			menuHolder.style.left = `${titleBoundingRect.left * titleBoundingRectZoom}px`;
 		}
 
-		if (this.options.compactMode?.vertical === VerticalDirection.Above) {
+		if (compactOpensBelow) {
+			menuHolder.style.top = `${titleBoundingRect.bottom * titleBoundingRectZoom}px`;
+		} else if (this.options.compactMode?.vertical === VerticalDirection.Above) {
 			// TODO@benibenj Do not hardcode the height of the menu holder
 			menuHolder.style.top = `${titleBoundingRect.top - this.menus.length * 30 + this.container.clientHeight}px`;
 		} else if (this.options.compactMode?.vertical === VerticalDirection.Below) {

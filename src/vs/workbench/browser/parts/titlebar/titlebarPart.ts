@@ -458,6 +458,8 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		// App Icon (Windows, Linux)
 		if ((isWindows || isLinux) && !hasNativeTitlebar(this.configurationService, this.titleBarStyle)) {
 			this.appIcon = prepend(this.leftContent, $('a.window-appicon'));
+			// othcloud: show the product name instead of a logo (styled in titlebarpart.css)
+			this.appIcon.textContent = 'OTerminal';
 		}
 
 		// Draggable region that we can manipulate for #52522
@@ -841,9 +843,8 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 	private get activityActionsEnabled(): boolean {
 		const activityBarPosition = this.configurationService.getValue<ActivityBarPosition>(LayoutSettings.ACTIVITY_BAR_LOCATION);
-		// HIDDEN is included because othcloud renders the activity bar's view containers in the title
-		// bar (see the titleBarActivityBar contribution); the global actions (accounts/manage) should
-		// stay alongside them rather than disappear with the native activity bar.
+		// HIDDEN is included so the global actions (accounts/manage) stay in the title bar rather
+		// than disappear with the native activity bar if a user hides it.
 		return !this.isCompact && !this.isAuxiliary && (activityBarPosition === ActivityBarPosition.TOP || activityBarPosition === ActivityBarPosition.BOTTOM || activityBarPosition === ActivityBarPosition.HIDDEN);
 	}
 

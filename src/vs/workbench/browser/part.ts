@@ -17,6 +17,10 @@ import { IDisposable, toDisposable } from '../../base/common/lifecycle.js';
 export interface IPartOptions {
 	readonly hasTitle?: boolean;
 	readonly borderWidth?: () => number;
+	/** Height of the header area (the composite bar when the activity bar is at the top). Defaults to 35. */
+	readonly headerHeight?: number;
+	/** When this returns true the title area takes no space (the part hides it itself). */
+	readonly titleHidden?: () => boolean;
 }
 
 export interface ILayoutContentResult {
@@ -214,7 +218,7 @@ class PartLayout {
 
 		// Title Size: Width (Fill), Height (Variable)
 		let titleSize: Dimension;
-		if (this.options.hasTitle) {
+		if (this.options.hasTitle && !this.options.titleHidden?.()) {
 			titleSize = new Dimension(width, Math.min(height, PartLayout.TITLE_HEIGHT));
 		} else {
 			titleSize = Dimension.None;
@@ -223,7 +227,7 @@ class PartLayout {
 		// Header Size: Width (Fill), Height (Variable)
 		let headerSize: Dimension;
 		if (this.headerVisible) {
-			headerSize = new Dimension(width, Math.min(height, PartLayout.HEADER_HEIGHT));
+			headerSize = new Dimension(width, Math.min(height, this.options.headerHeight ?? PartLayout.HEADER_HEIGHT));
 		} else {
 			headerSize = Dimension.None;
 		}

@@ -180,24 +180,9 @@ class CommandCenterCenterViewItem extends BaseActionViewItem {
 						}
 
 						private _getLabel(): string {
-							const { prefix, suffix } = that._windowTitle.getTitleDecorations();
-							let label = that._windowTitle.workspaceName;
-							if (that._windowTitle.isCustomTitleFormat()) {
-								label = that._windowTitle.getWindowTitle();
-							} else if (that._editorGroupService.partOptions.showTabs === 'none') {
-								label = that._windowTitle.fileName ?? label;
-							}
-							if (!label) {
-								label = localize('label.dfl', "Search");
-							}
-							if (prefix) {
-								label = localize('label1', "{0} {1}", prefix, label);
-							}
-							if (suffix) {
-								label = localize('label2', "{0} {1}", label, suffix);
-							}
-
-							return label.replaceAll(/\r\n|\r|\n/g, '\u23CE');
+							// othcloud: the command center is a search box, not a window title. Always
+							// label it "Search" instead of the workspace / file name and decorations.
+							return localize('label.dfl', "Search");
 						}
 					});
 				}

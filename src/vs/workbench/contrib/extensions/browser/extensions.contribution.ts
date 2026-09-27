@@ -114,7 +114,7 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	]);
 
 // Othcloud Terminal: yank the Extensions view container back to its default Sidebar location on startup.
-// shouldBeHidden() in paneCompositeBar then hides the icon — net effect: Extensions never appears in
+// shouldBeHidden() in paneCompositeBar then hides the icon - net effect: Extensions never appears in
 // the activity bar or secondary sidebar even if the user previously dragged it there.
 class OthcloudExtensionsLocationGuard implements IWorkbenchContribution {
 	static readonly ID = 'othcloud.extensions.locationGuard';
@@ -127,7 +127,7 @@ class OthcloudExtensionsLocationGuard implements IWorkbenchContribution {
 					viewDescriptorService.moveViewContainerToLocation(container, ViewContainerLocation.Sidebar, undefined, OthcloudExtensionsLocationGuard.ID);
 				}
 			}
-		} catch { /* swallow — best-effort cleanup */ }
+		} catch { /* swallow - best-effort cleanup */ }
 	}
 }
 registerWorkbenchContribution2(OthcloudExtensionsLocationGuard.ID, OthcloudExtensionsLocationGuard, WorkbenchPhase.AfterRestored);
@@ -153,7 +153,7 @@ export const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainer
 		alwaysUseContainerInfo: true,
 	}, ViewContainerLocation.Sidebar);
 
-// Othcloud Terminal: Extensions activity bar icon is hidden — surface the entry in the gear (manage) menu.
+// Othcloud Terminal: Extensions activity bar icon is hidden - surface the entry in the gear (manage) menu.
 MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
 	command: {
 		id: VIEWLET_ID,
@@ -1058,24 +1058,7 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 			run: () => this.extensionsWorkbenchService.openSearch('@popular ')
 		});
 
-		this.registerExtensionAction({
-			id: 'workbench.extensions.action.showRecommendedExtensions',
-			title: localize2('showRecommendedExtensions', 'Show Recommended Extensions'),
-			category: ExtensionsLocalizedLabel,
-			menu: [{
-				id: MenuId.CommandPalette,
-				when: CONTEXT_HAS_GALLERY
-			}, {
-				id: extensionsFilterSubMenu,
-				when: CONTEXT_HAS_GALLERY,
-				group: '1_predefined',
-				order: 2,
-			}],
-			menuTitles: {
-				[extensionsFilterSubMenu.id]: localize('most popular recommended', "Recommended")
-			},
-			run: () => this.extensionsWorkbenchService.openSearch('@recommended ')
-		});
+		// othcloud: no "Recommended" filter; recommendation views are not registered.
 
 		this.registerExtensionAction({
 			id: 'workbench.extensions.action.recentlyPublishedExtensions',
@@ -1106,6 +1089,10 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 		});
 
 		EXTENSION_CATEGORIES.forEach((category, index) => {
+			if (category === 'Themes') {
+				// othcloud: the product ships a single color theme; theme extensions are not offered.
+				return;
+			}
 			this.registerExtensionAction({
 				id: `extensions.actions.searchByCategory.${category}`,
 				title: category,

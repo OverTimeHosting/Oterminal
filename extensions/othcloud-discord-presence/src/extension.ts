@@ -159,7 +159,7 @@ class DiscordRpc {
 }
 
 const RECONNECT_DELAY_MS = 20000;
-// Hardcoded — the OTHCloud Discord application. Not user-configurable.
+// Hardcoded - the OTHCloud Discord application. Not user-configurable.
 const DISCORD_APPLICATION_ID = '1348861044604534835';
 
 let rpc: DiscordRpc | undefined;
@@ -192,15 +192,18 @@ function getConfig(): vscode.WorkspaceConfiguration {
 }
 
 /**
- * Tiny template renderer — replaces `{placeholder}` tokens with values, drops
+ * Tiny template renderer - replaces `{placeholder}` tokens with values, drops
  * empty surrounding separators so a missing placeholder doesn't leave " •  •"
  * gunk in the rendered string.
  */
 function render(template: string, values: Record<string, string>): string {
 	const filled = template.replace(/\{(\w+)\}/g, (_match, key: string) => values[key] ?? '');
 	return filled
+		// allow-any-unicode-next-line
 		.replace(/\s*[•·\-—]\s*(?=$|\s*[•·\-—])/g, '')  // collapse "X •  • Y" → "X • Y"
+		// allow-any-unicode-next-line
 		.replace(/^\s*[•·\-—]\s*/, '')                    // leading separator
+		// allow-any-unicode-next-line
 		.replace(/\s*[•·\-—]\s*$/, '')                    // trailing separator
 		.replace(/\s+/g, ' ')
 		.trim();
@@ -208,7 +211,7 @@ function render(template: string, values: Record<string, string>): string {
 
 function buildActivity(): Activity | null {
 	const config = getConfig();
-	const appName = config.get<string>('applicationName', 'OTHCloud Terminal');
+	const appName = config.get<string>('applicationName', 'OTerminal');
 	const largeImage = config.get<string>('largeImage', 'othcloud-logo') || undefined;
 	const largeImageText = config.get<string>('largeImageText', '') || appName;
 	const smallImage = config.get<string>('smallImage', '') || undefined;
@@ -216,6 +219,7 @@ function buildActivity(): Activity | null {
 	const idleText = config.get<string>('idleText', 'Idle');
 	const detailsTemplate = config.get<string>('detailsTemplate', 'Editing {file}');
 	const stateTemplate = config.get<string>('stateTemplate', 'Workspace: {workspace} • {language}');
+	// allow-any-unicode-next-line
 	const idleDetailsTemplate = config.get<string>('idleDetailsTemplate', '{app} — {idle}');
 	const showFileName = config.get<boolean>('showFileName', true);
 	const showWorkspace = config.get<boolean>('showWorkspace', true);

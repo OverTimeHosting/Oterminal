@@ -150,12 +150,17 @@ export interface ICompositeBarActionViewItemOptions extends IActionViewItemOptio
 	readonly hoverOptions: IActivityHoverOptions;
 	readonly hasPopup?: boolean;
 	readonly compact?: boolean;
+	/** With `icon`, also render the composite's name under the icon. */
+	readonly showLabel?: boolean;
+	/** Text to render under the icon instead of the composite's name (see `showLabel`). */
+	readonly labelOverride?: string;
 }
 
 export class CompositeBarActionViewItem extends BaseActionViewItem {
 
 	protected container!: HTMLElement;
 	protected label!: HTMLElement;
+	private labelText: HTMLElement | undefined;
 	protected badge!: HTMLElement;
 	protected override readonly options: ICompositeBarActionViewItemOptions;
 
@@ -272,6 +277,13 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {
 
 		// Label
 		this.label = append(container, $('a'));
+
+		// Name under the icon (othcloud: primary side bar view buttons)
+		if (this.options.icon && this.options.showLabel) {
+			this.container.classList.add('with-label');
+			this.labelText = append(container, $('span.composite-label-text'));
+			this.labelText.setAttribute('aria-hidden', 'true');
+		}
 
 		// Badge
 		this.badge = append(container, $('.badge'));
@@ -399,6 +411,10 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {
 
 		if (!this.options.icon) {
 			this.label.textContent = this.action.label;
+		}
+
+		if (this.labelText) {
+			this.labelText.textContent = this.options.labelOverride ?? this.action.label;
 		}
 	}
 

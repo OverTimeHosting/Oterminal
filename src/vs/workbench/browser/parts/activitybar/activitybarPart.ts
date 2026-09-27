@@ -330,6 +330,11 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 			return; // prevent menu bar from installing twice #110720
 		}
 
+		// othcloud: the title bar always hosts the compact menu, so the side bar's top bar skips it
+		if (this.part === Parts.SIDEBAR_PART) {
+			return;
+		}
+
 		this.menuBarContainer = $('.menubar');
 
 		const content = assertReturnsDefined(this.element);
@@ -418,7 +423,7 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {
 	}
 
 	getActivityBarContextMenuActions(): IAction[] {
-		// Othcloud Terminal: Activity Bar Position submenu removed from context menu — position is locked.
+		// Othcloud Terminal: Activity Bar Position submenu removed from context menu - position is locked.
 		const actions = [
 			toAction({ id: ToggleSidebarPositionAction.ID, label: ToggleSidebarPositionAction.getLabel(this.layoutService), run: () => this.instantiationService.invokeFunction(accessor => new ToggleSidebarPositionAction().run(accessor)) }),
 		];
@@ -536,7 +541,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// Othcloud Terminal: Activity Bar Position submenus removed — position is fixed at "top".
+// Othcloud Terminal: Activity Bar Position submenus removed - position is fixed at "top".
 
 registerAction2(class extends SwitchCompositeViewAction {
 	constructor() {

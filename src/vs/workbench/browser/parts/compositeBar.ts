@@ -140,6 +140,11 @@ export class CompositeDragAndDrop implements ICompositeDragAndDrop {
 export interface ICompositeBarOptions {
 
 	readonly icon: boolean;
+	readonly showLabels?: boolean;
+	/** Shorter names to show under the icon for specific composites (see `showLabels`). */
+	readonly labelOverrides?: Readonly<Record<string, string>>;
+	/** Composites this bar never shows, not even when active or in the overflow menu. */
+	readonly filter?: (compositeId: string) => boolean;
 	readonly orientation: ActionsOrientation;
 	readonly colors: (theme: IColorTheme) => ICompositeBarColors;
 	readonly compact?: boolean;
@@ -293,7 +298,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 				const item = this.model.findItem(action.id);
 				return item && this.instantiationService.createInstance(
 					CompositeActionViewItem,
-					{ ...options, draggable: true, colors: this.options.colors, icon: this.options.icon, hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },
+					{ ...options, draggable: true, colors: this.options.colors, icon: this.options.icon, showLabel: this.options.showLabels, labelOverride: this.options.labelOverrides?.[action.id], hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },
 					action as CompositeBarAction,
 					item.pinnedAction,
 					item.toggleBadgeAction,
@@ -524,9 +529,11 @@ export class CompositeBar extends Widget implements ICompositeBar {
 			return; // We have not been rendered yet so there is nothing to update.
 		}
 
+		const filter = this.options.filter;
 		let compositesToShow = this.model.visibleItems.filter(item =>
-			item.pinned
-			|| (this.model.activeItem && this.model.activeItem.id === item.id) /* Show the active composite even if it is not pinned */
+			(!filter || filter(item.id))
+			&& (item.pinned
+				|| (this.model.activeItem && this.model.activeItem.id === item.id)) /* Show the active composite even if it is not pinned */
 		).map(item => item.id);
 
 		// Ensure we are not showing more composites than we have height for
@@ -553,7 +560,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 		}
 
 		// We always try show the active composite, so re-add it if it was sliced out
-		if (this.model.activeItem && compositesToShow.every(compositeId => !!this.model.activeItem && compositeId !== this.model.activeItem.id)) {
+		if (this.model.activeItem && (!filter || filter(this.model.activeItem.id)) && compositesToShow.every(compositeId => !!this.model.activeItem && compositeId !== this.model.activeItem.id)) {
 			size += this.compositeSizeInBar.get(this.model.activeItem.id)!;
 			compositesToShow.push(this.model.activeItem.id);
 		}
@@ -647,7 +654,7 @@ export class CompositeBar extends Widget implements ICompositeBar {
 			overflowingIds.push(this.model.activeItem.id);
 		}
 
-		overflowingIds = overflowingIds.filter(compositeId => !this.visibleComposites.includes(compositeId));
+		overflowingIds = overflowingIds.filter(compositeId => !this.visibleComposites.includes(compositeId) && (!this.options.filter || this.options.filter(compositeId)));
 		return this.model.visibleItems.filter(c => overflowingIds.includes(c.id)).map(item => { return { id: item.id, name: this.getAction(item.id)?.label || item.name }; });
 	}
 

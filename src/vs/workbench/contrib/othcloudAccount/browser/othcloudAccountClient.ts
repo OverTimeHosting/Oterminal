@@ -17,7 +17,7 @@ const OTHCLOUD_PROD_BASE_URL = 'https://othcloud.xyz';
  *
  * A guess, and only a guess, until something better-informed overrides it.
  * `env` is empty in the WEB build (`base/common/process` hardcodes `{}` there),
- * so the `VSCODE_DEV` check can only ever land on production — which is the
+ * so the `VSCODE_DEV` check can only ever land on production - which is the
  * wrong answer for every panel that is not literally othcloud.xyz, including
  * the localhost one this is developed against.
  *
@@ -67,6 +67,35 @@ export interface IOthcloudServices {
 	readonly projects: readonly IOthcloudServiceRow[];
 }
 
+/** Platform a synced terminal profile applies to; `all` means every OS. */
+export type OthcloudTerminalProfilePlatform = 'all' | 'linux' | 'osx' | 'windows';
+
+/**
+ * A terminal profile stored on othcloud.xyz for the signed-in user. Mirrors
+ * the `desktop_terminal_profile` row; the desktop writes these into
+ * `terminal.integrated.profiles.<platform>` so they show up wherever the
+ * built-in profiles do (the "+" dropdown, the New Terminal submenu, ...).
+ */
+export interface IOthcloudTerminalProfile {
+	readonly id: string;
+	readonly name: string;
+	readonly platform: OthcloudTerminalProfilePlatform;
+	readonly path: string;
+	readonly args?: readonly string[] | null;
+	readonly env?: Readonly<Record<string, string | null>> | null;
+	/** Codicon id, e.g. `terminal-bash` or `sparkle`. */
+	readonly icon?: string | null;
+	/** Theme color id, e.g. `terminal.ansiBlue`. */
+	readonly color?: string | null;
+	readonly updatedAt?: string;
+}
+
+export type IOthcloudTerminalProfileInput = Omit<IOthcloudTerminalProfile, 'id' | 'updatedAt'>;
+
+export interface IOthcloudTerminalProfiles {
+	readonly profiles: readonly IOthcloudTerminalProfile[];
+}
+
 export class OthcloudAccountApiError extends Error {
 	constructor(public readonly status: number, message: string) {
 		super(message);
@@ -74,11 +103,18 @@ export class OthcloudAccountApiError extends Error {
 	}
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+async function requestJson<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, token?: string, body?: unknown): Promise<T> {
+	const headers: Record<string, string> = {};
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+	if (body !== undefined) {
+		headers['Content-Type'] = 'application/json';
+	}
 	const res = await fetch(`${getOthcloudBaseUrl()}${path}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body),
+		method,
+		headers,
+		body: body === undefined ? undefined : JSON.stringify(body),
 	});
 	const text = await res.text();
 	const parsed = text ? safeJson(text) : undefined;
@@ -91,19 +127,12 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 	return parsed as T;
 }
 
-async function getJson<T>(path: string, token: string): Promise<T> {
-	const res = await fetch(`${getOthcloudBaseUrl()}${path}`, {
-		headers: { 'Authorization': `Bearer ${token}` },
-	});
-	const text = await res.text();
-	const parsed = text ? safeJson(text) : undefined;
-	if (!res.ok) {
-		const message = (parsed && typeof (parsed as { error?: unknown }).error === 'string')
-			? (parsed as { error: string }).error
-			: `HTTP ${res.status}`;
-		throw new OthcloudAccountApiError(res.status, message);
-	}
-	return parsed as T;
+function postJson<T>(path: string, body: unknown): Promise<T> {
+	return requestJson<T>('POST', path, undefined, body);
+}
+
+function getJson<T>(path: string, token: string): Promise<T> {
+	return requestJson<T>('GET', path, token);
 }
 
 function safeJson(text: string): unknown {
@@ -135,5 +164,22 @@ export const OthcloudAccountClient = {
 	 */
 	async listServices(token: string): Promise<IOthcloudServices> {
 		return getJson<IOthcloudServices>('/api/desktop/services', token);
+	},
+
+	/**
+	 * Terminal profiles the user keeps on othcloud.xyz. Applied to the local
+	 * terminal settings by `OthcloudTerminalProfilesContribution`.
+	 */
+	async listTerminalProfiles(token: string): Promise<IOthcloudTerminalProfiles> {
+		return getJson<IOthcloudTerminalProfiles>('/api/desktop/profiles', token);
+	},
+
+	/** Creates or replaces (by name + platform) a terminal profile on othcloud.xyz. */
+	async saveTerminalProfile(token: string, profile: IOthcloudTerminalProfileInput): Promise<IOthcloudTerminalProfile> {
+		return requestJson<IOthcloudTerminalProfile>('POST', '/api/desktop/profiles', token, profile);
+	},
+
+	async deleteTerminalProfile(token: string, id: string): Promise<void> {
+		await requestJson<unknown>('DELETE', `/api/desktop/profiles/${encodeURIComponent(id)}`, token);
 	},
 };

@@ -1,7 +1,7 @@
 {
 	"displayName": "OTHCloud Discord Presence",
-	"description": "Show your OTHCloud Terminal activity in Discord via Rich Presence.",
-	"config.enabled": "Show OTHCloud Terminal activity in Discord.",
+	"description": "Show your OTerminal activity in Discord via Rich Presence.",
+	"config.enabled": "Show OTerminal activity in Discord.",
 	"config.applicationName": "Name shown next to the activity in Discord. Falls back to the Discord application name if blank.",
 	"config.detailsTemplate": "First line of the activity. Placeholders: {file} {language} {workspace} {app} {idle}. Default: \"Editing {file}\".",
 	"config.stateTemplate": "Second line of the activity. Same placeholders as detailsTemplate. Default: \"Workspace: {workspace} • {language}\".",

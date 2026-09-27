@@ -121,6 +121,15 @@ export function setupTerminalMenus(): void {
 			{
 				id: MenuId.TerminalInstanceContext,
 				item: {
+					submenu: MenuId.TerminalNewWithProfileContext,
+					title: terminalStrings.new,
+					group: TerminalContextMenuGroup.Create,
+					order: 0
+				}
+			},
+			{
+				id: MenuId.TerminalInstanceContext,
+				item: {
 					command: {
 						id: TerminalCommandId.KillViewOrEditor,
 						title: terminalStrings.kill.value,
@@ -197,20 +206,16 @@ export function setupTerminalMenus(): void {
 	);
 
 	MenuRegistry.appendMenuItem(MenuId.EditorTabsBarContext, {
-		command: {
-			id: TerminalCommandId.CreateTerminalEditorSameGroup,
-			title: terminalStrings.new
-		},
+		submenu: MenuId.TerminalNewEditorWithProfileContext,
+		title: terminalStrings.new,
 		group: '1_zzz_file',
 		order: 30,
 		when: TerminalContextKeys.processSupported
 	});
 
 	MenuRegistry.appendMenuItem(MenuId.EmptyEditorGroupContext, {
-		command: {
-			id: TerminalCommandId.CreateTerminalEditorSameGroup,
-			title: terminalStrings.new
-		},
+		submenu: MenuId.TerminalNewEditorWithProfileContext,
+		title: terminalStrings.new,
 		group: '1_zzz_file',
 		order: 30,
 		when: TerminalContextKeys.processSupported
@@ -231,10 +236,8 @@ export function setupTerminalMenus(): void {
 			{
 				id: MenuId.TerminalEditorInstanceContext,
 				item: {
-					command: {
-						id: TerminalCommandId.New,
-						title: terminalStrings.new
-					},
+					submenu: MenuId.TerminalNewWithProfileContext,
+					title: terminalStrings.new,
 					group: TerminalContextMenuGroup.Create
 				}
 			},
@@ -330,10 +333,8 @@ export function setupTerminalMenus(): void {
 			{
 				id: MenuId.TerminalTabEmptyAreaContext,
 				item: {
-					command: {
-						id: TerminalCommandId.New,
-						title: terminalStrings.new
-					},
+					submenu: MenuId.TerminalNewWithProfileContext,
+					title: terminalStrings.new,
 					group: TerminalContextMenuGroup.Create
 				}
 			}
@@ -360,6 +361,50 @@ export function setupTerminalMenus(): void {
 						title: localize('workbench.action.terminal.openSettings', "Configure Terminal Settings")
 					},
 					group: '3_configure'
+				}
+			},
+			{
+				id: MenuId.TerminalNewWithProfileContext,
+				item: {
+					command: {
+						id: TerminalCommandId.SelectDefaultProfile,
+						title: localize2('workbench.action.terminal.selectDefaultProfile', 'Select Default Profile')
+					},
+					group: '9_configure',
+					order: 1
+				}
+			},
+			{
+				id: MenuId.TerminalNewWithProfileContext,
+				item: {
+					command: {
+						id: TerminalCommandId.ConfigureTerminalSettings,
+						title: localize('workbench.action.terminal.openSettings', "Configure Terminal Settings")
+					},
+					group: '9_configure',
+					order: 2
+				}
+			},
+			{
+				id: MenuId.TerminalNewEditorWithProfileContext,
+				item: {
+					command: {
+						id: TerminalCommandId.SelectDefaultProfile,
+						title: localize2('workbench.action.terminal.selectDefaultProfile', 'Select Default Profile')
+					},
+					group: '9_configure',
+					order: 1
+				}
+			},
+			{
+				id: MenuId.TerminalNewEditorWithProfileContext,
+				item: {
+					command: {
+						id: TerminalCommandId.ConfigureTerminalSettings,
+						title: localize('workbench.action.terminal.openSettings', "Configure Terminal Settings")
+					},
+					group: '9_configure',
+					order: 2
 				}
 			},
 			{
@@ -566,6 +611,15 @@ export function setupTerminalMenus(): void {
 
 	MenuRegistry.appendMenuItems(
 		[
+			{
+				id: MenuId.TerminalTabContext,
+				item: {
+					submenu: MenuId.TerminalNewWithProfileContext,
+					title: terminalStrings.new,
+					group: TerminalContextMenuGroup.Create,
+					order: 0
+				}
+			},
 			{
 				id: MenuId.TerminalTabContext,
 				item: {

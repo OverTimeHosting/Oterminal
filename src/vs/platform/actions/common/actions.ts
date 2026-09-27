@@ -232,6 +232,8 @@ export class MenuId {
 	static readonly TerminalInstanceContext = new MenuId('TerminalInstanceContext');
 	static readonly TerminalEditorInstanceContext = new MenuId('TerminalEditorInstanceContext');
 	static readonly TerminalNewDropdownContext = new MenuId('TerminalNewDropdownContext');
+	static readonly TerminalNewWithProfileContext = new MenuId('TerminalNewWithProfileContext');
+	static readonly TerminalNewEditorWithProfileContext = new MenuId('TerminalNewEditorWithProfileContext');
 	static readonly TerminalTabContext = new MenuId('TerminalTabContext');
 	static readonly TerminalTabEmptyAreaContext = new MenuId('TerminalTabEmptyAreaContext');
 	static readonly TerminalStickyScrollContext = new MenuId('TerminalStickyScrollContext');
