@@ -42,10 +42,25 @@
 				},
 				"othcloud.mcp.port": {
 					"type": "number",
-					"default": 0,
+					"default": 47820,
 					"minimum": 0,
 					"maximum": 65535,
 					"description": "%config.port%"
+				},
+				"othcloud.mcp.projectConfig": {
+					"type": "string",
+					"enum": [
+						"update",
+						"create",
+						"off"
+					],
+					"enumDescriptions": [
+						"%config.projectConfig.update%",
+						"%config.projectConfig.create%",
+						"%config.projectConfig.off%"
+					],
+					"default": "update",
+					"description": "%config.projectConfig%"
 				},
 				"othcloud.mcp.allowedOrigins": {
 					"type": "array",

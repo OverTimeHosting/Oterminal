@@ -9,12 +9,18 @@ import * as vscode from 'vscode';
 import { RunningServer, startServer } from './server';
 import { getOrCreateToken, rotateToken } from './secret';
 import { buildTools } from './tools';
+import { ProjectConfigMode, syncProjectConfigs, TOKEN_ENV, URL_ENV } from './projectConfig';
 
 const EXT_NAME = 'othcloud-mcp';
 const EXT_VERSION = '1.0.0';
 const CONFIG_SECTION = 'othcloud.mcp';
 const STICKY_PORT_KEY = 'othcloud.mcp.stickyPort';
 const MCP_SERVER_NAME = 'oterminal';
+/**
+ * The port every window tries first, so the server's address stays the same. Only one window
+ * can have it; the others fall back to a free port, and their terminals are pointed at theirs.
+ */
+const DEFAULT_PORT = 47820;
 
 /**
  * Appended to the system prompt of every Claude Code session the terminal launches
@@ -54,6 +60,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	const state: ServerState = { token: await getOrCreateToken(context) };
 
+	// This window's server, for the project `.mcp.json` entries (see projectConfig.ts). Not
+	// persisted: a restored terminal must not get a previous session's address.
+	context.environmentVariableCollection.persistent = false;
+	context.environmentVariableCollection.description = 'OTHCloud MCP server address and token, for Claude Code';
+
+	const projectConfigMode = () => vscode.workspace.getConfiguration(CONFIG_SECTION).get<ProjectConfigMode>('projectConfig', 'update');
+	const defaultUrl = () => {
+		const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
+		const host = cfg.get<string>('host', '127.0.0.1') || '127.0.0.1';
+		const port = cfg.get<number>('port', DEFAULT_PORT) || DEFAULT_PORT;
+		return `http://${host}:${port}/sse`;
+	};
+	const syncProjects = () => syncProjectConfigs(MCP_SERVER_NAME, defaultUrl(), projectConfigMode(), output);
+
 	const start = async (): Promise<void> => {
 		await stop();
 		const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
@@ -64,7 +84,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			return;
 		}
 		const host = cfg.get<string>('host', '127.0.0.1') || '127.0.0.1';
-		const configuredPort = cfg.get<number>('port', 0) ?? 0;
+		const configuredPort = cfg.get<number>('port', DEFAULT_PORT) ?? DEFAULT_PORT;
 		const allowedOrigins = new Set<string>(cfg.get<string[]>('allowedOrigins', []) ?? []);
 
 		// Sticky port: when no explicit port is configured (port = 0), reuse the
@@ -72,7 +92,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		const stickyPort = context.globalState.get<number>(STICKY_PORT_KEY);
 		const portsToTry: number[] = [];
 		if (configuredPort > 0) {
-			portsToTry.push(configuredPort);
+			// Taken (usually by another OTerminal window): any free port, for this window only
+			portsToTry.push(configuredPort, 0);
 		} else {
 			if (typeof stickyPort === 'number' && stickyPort > 0 && stickyPort < 65536) {
 				portsToTry.push(stickyPort);
@@ -107,8 +128,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				// Remember the bound port for next time so the client config stays valid.
 				await context.globalState.update(STICKY_PORT_KEY, state.running.port);
 			}
+			if (configuredPort > 0 && state.running.port !== configuredPort) {
+				output.appendLine(`[mcp] port ${configuredPort} is in use (another OTerminal window?); this window uses ${state.running.port}`);
+			}
 			statusBar.text = `$(plug) MCP :${state.running.port}`;
 			statusBar.tooltip = `OTHCloud MCP server listening on ${state.running.address}/sse`;
+			context.environmentVariableCollection.replace(URL_ENV, `${state.running.address}/sse`);
+			context.environmentVariableCollection.replace(TOKEN_ENV, state.token);
+			void syncProjects();
 		} else {
 			const msg = lastErr?.message ?? 'unknown error';
 			output.appendLine(`[mcp] failed to start: ${msg}`);
@@ -126,10 +153,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	};
 
 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-		if (e.affectsConfiguration(CONFIG_SECTION)) {
+		if (e.affectsConfiguration(`${CONFIG_SECTION}.projectConfig`)) {
+			void syncProjects();
+		} else if (e.affectsConfiguration(CONFIG_SECTION)) {
 			void start();
 		}
 	}));
+
+	// A repository opened into this window gets its `.mcp.json` brought up to date too
+	context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => void syncProjects()));
 
 	context.subscriptions.push(vscode.commands.registerCommand('othcloud.mcp.showStatus', async () => {
 		if (!state.running) {
