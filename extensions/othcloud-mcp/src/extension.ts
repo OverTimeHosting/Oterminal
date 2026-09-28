@@ -14,16 +14,16 @@ const EXT_NAME = 'othcloud-mcp';
 const EXT_VERSION = '1.0.0';
 const CONFIG_SECTION = 'othcloud.mcp';
 const STICKY_PORT_KEY = 'othcloud.mcp.stickyPort';
-const MCP_SERVER_NAME = 'othcloud-terminal';
+const MCP_SERVER_NAME = 'oterminal';
 
 /**
  * Appended to the system prompt of every Claude Code session the terminal launches
  * (see the workbench's othcloudClaudeLaunch.ts), so git work goes through this server.
  */
 const CLAUDE_INSTRUCTIONS = [
-	`You are running inside othcloud terminal, which provides the "${MCP_SERVER_NAME}" MCP server.`,
+	`You are running inside OTerminal, which provides the "${MCP_SERVER_NAME}" MCP server.`,
 	`For git work, always use its git tools (git.status, git.diff, git.log, git.stage, git.unstage, git.commit, git.branch, git.checkout, git.fetch, git.pull, git.push) instead of running git in the shell.`,
-	`They act on the repositories open in othcloud terminal, so the user sees every change in the Source Control view, and pushes use the GitHub account signed in to othcloud terminal.`,
+	`They act on the repositories open in OTerminal, so the user sees every change in the Source Control view, and pushes use the GitHub account signed in to OTerminal.`,
 	`Pass "repository" (the repository root path) whenever more than one repository is open.`,
 	`Only fall back to the git CLI for operations these tools do not cover, such as rebase, stash or tags.`,
 ].join(' ');

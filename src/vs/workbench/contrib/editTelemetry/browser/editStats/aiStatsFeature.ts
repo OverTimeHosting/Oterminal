@@ -31,7 +31,7 @@ export class AiStatsFeature extends Disposable {
 
 		this.aiRate.recomputeInitiallyAndOnChange(this._store);
 
-		// Othcloud Terminal: AI stats / inline-suggestions status bar item removed.
+		// OTerminal: AI stats / inline-suggestions status bar item removed.
 		// this._register(autorun(reader => {
 		// 	reader.store.add(this._instantiationService.createInstance(AiStatsStatusBar.hot.read(reader), this));
 		// }));

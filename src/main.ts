@@ -14,6 +14,7 @@ import minimist from 'minimist';
 import { product } from './bootstrap-meta.js';
 import { parse } from './vs/base/common/jsonc.js';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
+import { migrateLegacyDataFolders } from './vs/platform/environment/node/legacyDataMigration.js';
 import * as perf from './vs/base/common/performance.js';
 import { resolveNLSConfiguration } from './vs/base/node/nls.js';
 import { getUNCHost, addUNCHostToAllowlist } from './vs/base/node/unc.js';
@@ -34,6 +35,13 @@ perf.mark('code/didLoadMainBundle');
 const portable = configurePortable(product);
 
 const args = parseCLIArgs();
+
+// OTerminal: bring over the data of builds released as "othcloud terminal".
+// Before anything below reads argv.json or the user data folder.
+if (!portable.isPortable && !process.env['VSCODE_DEV'] && product.nameShort && product.dataFolderName) {
+	migrateLegacyDataFolders(getUserDataPath(args, product.nameShort), { nameShort: product.nameShort, dataFolderName: product.dataFolderName });
+}
+
 // Configure static command line arguments
 const argvConfig = configureCommandlineSwitchesSync(args);
 // Enable sandbox globally unless

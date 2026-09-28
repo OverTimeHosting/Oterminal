@@ -74,6 +74,16 @@ Type: filesandordirs; Name: "{app}\{#VersionedResourcesFolder}\resources\app\nod
 Type: filesandordirs; Name: "{app}\{#VersionedResourcesFolder}\resources\app\node_modules.asar.unpacked"; Check: IsNotBackgroundUpdate
 Type: files; Name: "{app}\{#VersionedResourcesFolder}\resources\app\node_modules.asar"; Check: IsNotBackgroundUpdate
 Type: files; Name: "{app}\{#VersionedResourcesFolder}\resources\app\Credits_45.0.2454.85.html"; Check: IsNotBackgroundUpdate
+; OTerminal was "othcloud terminal" (othcloud-terminal on the command line) until 1.110.26.
+; Remove what those builds left that this one no longer overwrites. Files still in
+; use are skipped here and cleaned up by the background updater instead.
+Type: files; Name: "{app}\othcloud terminal.exe"
+Type: files; Name: "{app}\othcloud terminal.VisualElementsManifest.xml"
+Type: files; Name: "{app}\bin\othcloud-terminal.cmd"
+Type: files; Name: "{app}\bin\othcloud-terminal"
+Type: files; Name: "{group}\othcloud terminal.lnk"
+Type: files; Name: "{autodesktop}\othcloud terminal.lnk"
+Type: files; Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\othcloud terminal.lnk"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\_"
@@ -1302,6 +1312,7 @@ Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\Drive\shell\{#RegValu
 Root: {#EnvironmentRootKey}; Subkey: "{#EnvironmentKey}"; ValueType: expandsz; ValueName: "Path"; ValueData: "{code:AddToPath|{app}\bin}"; Tasks: addtopath; Check: NeedsAddToPath(ExpandConstant('{app}\bin'))
 
 ; App Paths - allows running code from Explorer address bar
+Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\othcloud-terminal.exe"; ValueType: none; Flags: deletekey; Check: IsNotBackgroundUpdate
 Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe"; Flags: uninsdeletekey
 Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: string; ValueName: "Path"; ValueData: "{app}"; Flags: uninsdeletekey
 

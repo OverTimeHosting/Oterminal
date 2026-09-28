@@ -1,4 +1,4 @@
-# othcloud terminal — Developers backend
+# OTerminal — Developers backend
 
 Go HTTP server backing the Developers panel inside the editor.
 

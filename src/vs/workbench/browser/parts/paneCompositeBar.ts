@@ -440,7 +440,7 @@ export class PaneCompositeBar extends Disposable {
 		const viewContainer = isString(viewContainerOrId) ? this.getViewContainer(viewContainerOrId) : viewContainerOrId;
 		const viewContainerId = isString(viewContainerOrId) ? viewContainerOrId : viewContainerOrId.id;
 
-		// Othcloud Terminal: hide specific view containers from specific bars
+		// OTerminal: hide specific view containers from specific bars
 		if (viewContainerId === 'workbench.view.extensions') {
 			return true;
 		}
@@ -477,7 +477,7 @@ export class PaneCompositeBar extends Disposable {
 	}
 
 	private addComposite(viewContainer: ViewContainer): void {
-		// Othcloud Terminal: skip adding hidden containers (e.g. terminal/ports in the bottom panel)
+		// OTerminal: skip adding hidden containers (e.g. terminal/ports in the bottom panel)
 		if (this.shouldBeHidden(viewContainer)) {
 			return;
 		}

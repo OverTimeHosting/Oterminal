@@ -687,7 +687,7 @@ class MarkersStatusBarContributions extends Disposable implements IWorkbenchCont
 	}
 }
 
-// Othcloud Terminal: Problems status-bar entry removed
+// OTerminal: Problems status-bar entry removed
 // workbenchRegistry.registerWorkbenchContribution(MarkersStatusBarContributions, LifecyclePhase.Restored);
 void MarkersStatusBarContributions;
 

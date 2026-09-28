@@ -1,7 +1,7 @@
 # OTHCloud MCP
 
 Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that lets Claude
-Code (and any other MCP client) drive othcloud terminal:
+Code (and any other MCP client) drive OTerminal:
 
 - Stage / unstage / commit through the source control panel
 - Set the commit message box
@@ -26,7 +26,7 @@ the assistant — even if the assistant tried to add itself.
 
 ## Connect Claude Code
 
-Claude Code started in an othcloud terminal terminal (any profile or terminal whose
+Claude Code started in an OTerminal terminal (any profile or terminal whose
 executable is `claude`) is connected automatically: the workbench launches it with
 `--mcp-config` pointing at a config file this extension writes (readable only by you),
 `--append-system-prompt` telling it to use the `git.*` tools below for commits, pushes
@@ -44,7 +44,7 @@ To connect a Claude Code started elsewhere:
 ```json
 {
   "mcpServers": {
-    "othcloud-terminal": {
+    "oterminal": {
       "type": "sse",
       "url": "http://127.0.0.1:<port>/sse",
       "headers": { "Authorization": "Bearer <token>" }
@@ -54,7 +54,7 @@ To connect a Claude Code started elsewhere:
 ```
 
 3. Restart Claude Code so it picks up the new server. The available tools will be
-   prefixed with `othcloud-terminal__`.
+   prefixed with `oterminal__`.
 
 The port and token persist across restarts; the token lives in VS Code's secret
 storage. Use **OTHCloud MCP: Revoke Token and Restart** to rotate it.

@@ -240,7 +240,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			}
 		}
 
-		// Othcloud Terminal: Activity Bar Position submenu removed from secondary side bar context menu.
+		// OTerminal: Activity Bar Position submenu removed from secondary side bar context menu.
 		const toggleShowLabelsAction = toAction({
 			id: 'workbench.action.auxiliarybar.toggleShowLabels',
 			label: this.configuration.showLabels ? localize('showIcons', "Show Icons") : localize('showLabels', "Show Labels"),

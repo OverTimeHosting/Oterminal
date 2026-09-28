@@ -404,7 +404,7 @@ registerAction2(class extends Action2 {
 			id: SelectColorThemeCommandId,
 			title: localize2('selectTheme.label', 'Color Theme'),
 			category: Categories.Preferences,
-			f1: false, // Othcloud Terminal: theme picker hidden — Othcloud is the only color theme
+			f1: false, // OTerminal: theme picker hidden - Othcloud is the only color theme
 		});
 	}
 
@@ -791,5 +791,5 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// Othcloud Terminal: "Themes" submenu removed from manage button + File > Preferences menu.
+// OTerminal: "Themes" submenu removed from manage button + File > Preferences menu.
 // Othcloud is the only color theme; theme switching is disabled.

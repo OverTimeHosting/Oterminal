@@ -1,7 +1,7 @@
 # Othcloud Desktop Pairing Contract
 
 This document describes the handshake between **othcloud.xyz** (the Next.js +
-tRPC monorepo) and **othcloud-terminal** (this desktop client) for linking a
+tRPC monorepo) and **OTerminal** (this desktop client) for linking a
 logged-in browser session to the desktop app.
 
 It is the source of truth for what each side must implement. Once both sides
@@ -27,7 +27,7 @@ lights up automatically.
        │ (4) Sidebar uses token for all subsequent calls         │
 ```
 
-1. **User clicks "Open in Othcloud Terminal"** on othcloud.xyz (while
+1. **User clicks "Open in OTerminal"** on othcloud.xyz (while
    logged in via the regular session cookie).
 2. **Website redirects the browser to `othcloud-terminal://auth?code=<code>`**.
    The OS routes this URL to the running desktop app via the
@@ -62,7 +62,7 @@ All endpoints accept and return JSON. Errors should respond with
   **≤2 minutes** from issuance.
 - The code is single-use: once `/api/desktop/token` succeeds, delete it.
 
-The website's "Open in Othcloud Terminal" button calls this, then sets
+The website's "Open in OTerminal" button calls this, then sets
 `window.location.href = "othcloud-terminal://auth?code=" + encodeURIComponent(code)`.
 
 ### `POST /api/desktop/token`
@@ -103,7 +103,7 @@ The website's "Open in Othcloud Terminal" button calls this, then sets
 **Token format:** the desktop side treats it as an opaque string. A JWT or
 `Authorization: Bearer <token>` against a tokens table both work. Recommended:
 store a SHA-256 hash on the server, hand the user the raw value once, and
-include token metadata (name="Othcloud Terminal", createdAt, lastUsedAt).
+include token metadata (name="OTerminal", createdAt, lastUsedAt).
 
 ### `GET /api/desktop/me`
 
@@ -291,7 +291,7 @@ Any other path / authority is ignored by the desktop URL handler
    *Othcloud*. The sidebar reads "Sign in to othcloud" with a CTA button.
 2. Click the CTA. The embedded browser opens `https://othcloud.xyz`.
 3. Log in on the website (or already logged in).
-4. Click "Open in Othcloud Terminal" on the website dashboard.
+4. Click "Open in OTerminal" on the website dashboard.
 5. The website hits `/api/desktop/pair`, gets a code, and redirects to
    `othcloud-terminal://auth?code=...`.
 6. The desktop catches the URL, exchanges the code at `/api/desktop/token`,

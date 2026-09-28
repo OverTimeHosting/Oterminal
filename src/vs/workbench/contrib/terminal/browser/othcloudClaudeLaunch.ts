@@ -27,7 +27,7 @@ interface IClaudeLaunchConfig {
 }
 
 /**
- * Othcloud Terminal: every terminal that runs Claude Code directly (a synced
+ * OTerminal: every terminal that runs Claude Code directly (a synced
  * `claude` profile, a local one, or an extension-created terminal) is started
  * connected to the othcloud-mcp server, told to use its git tools for commits
  * and pushes, and given every other workspace folder with `--add-dir`, so a

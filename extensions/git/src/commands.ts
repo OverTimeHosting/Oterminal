@@ -4248,7 +4248,7 @@ export class CommandCenter {
 			return;
 		}
 
-		// Sync confirmation is hard-disabled in Othcloud Terminal — always proceed.
+		// Sync confirmation is hard-disabled in OTerminal - always proceed.
 		await repository.sync(HEAD, rebase);
 	}
 

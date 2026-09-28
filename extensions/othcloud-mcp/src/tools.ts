@@ -330,7 +330,7 @@ function editorSplitTool(): McpToolDefinition {
 function browserOpenTool(): McpToolDefinition {
 	return {
 		name: 'browser.open',
-		description: 'Open a URL in othcloud terminal\'s built-in Simple Browser (default) or in the OS default browser. Use this to show the user a live preview, docs, or a localhost dev server.',
+		description: 'Open a URL in OTerminal\'s built-in Simple Browser (default) or in the OS default browser. Use this to show the user a live preview, docs, or a localhost dev server.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -581,7 +581,7 @@ function gitFetchTool(): McpToolDefinition {
 function gitPullTool(): McpToolDefinition {
 	return {
 		name: 'git.pull',
-		description: 'Pull the current branch from its upstream, using the git settings and credentials of othcloud terminal\'s Source Control view.',
+		description: 'Pull the current branch from its upstream, using the git settings and credentials of OTerminal\'s Source Control view.',
 		inputSchema: {
 			type: 'object',
 			properties: { ...repoArg },
@@ -603,7 +603,7 @@ function gitPullTool(): McpToolDefinition {
 function gitPushTool(): McpToolDefinition {
 	return {
 		name: 'git.push',
-		description: 'Push the current branch, using the GitHub account signed in to othcloud terminal. A branch without an upstream is published to "origin" (or the only remote) and its upstream is set. Plain force pushes are not offered; use forceWithLease to overwrite a remote branch you rewrote.',
+		description: 'Push the current branch, using the GitHub account signed in to OTerminal. A branch without an upstream is published to "origin" (or the only remote) and its upstream is set. Plain force pushes are not offered; use forceWithLease to overwrite a remote branch you rewrote.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -879,7 +879,7 @@ function diagnosticsGetTool(): McpToolDefinition {
 function commandExecuteTool(): McpToolDefinition {
 	return {
 		name: 'command.execute',
-		description: 'Run any othcloud terminal command (e.g. "workbench.action.files.save", "editor.action.formatDocument"). Use vscode.commands.getCommands to discover IDs. Result is JSON-serialized when present.',
+		description: 'Run any OTerminal command (e.g. "workbench.action.files.save", "editor.action.formatDocument"). Use vscode.commands.getCommands to discover IDs. Result is JSON-serialized when present.',
 		inputSchema: {
 			type: 'object',
 			properties: {

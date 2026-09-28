@@ -7,6 +7,16 @@
 rm -f /usr/bin/@@NAME@@
 ln -s /usr/share/@@NAME@@/bin/@@NAME@@ /usr/bin/@@NAME@@
 
+# OTerminal was packaged as othcloud-terminal until 1.110.26; this package
+# replaces that one. Its updater relaunches /usr/share/othcloud-terminal/othcloud-terminal
+# after installing, and people may still type othcloud-terminal, so keep both
+# paths pointing here.
+if [ "@@NAME@@" != "othcloud-terminal" ]; then
+	mkdir -p /usr/share/othcloud-terminal
+	ln -sfn /usr/share/@@NAME@@/@@NAME@@ /usr/share/othcloud-terminal/othcloud-terminal
+	ln -sfn /usr/share/@@NAME@@/bin/@@NAME@@ /usr/bin/othcloud-terminal
+fi
+
 # Register code in the alternatives system
 # Priority of 0 should never make code the default editor in auto mode as most
 # developers would prefer a terminal editor as the default.

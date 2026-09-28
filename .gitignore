@@ -1,4 +1,4 @@
-# Othcloud Terminal: Claude Code is too large to vendor (254 MB native binary, GitHub blocks > 100 MB)
+# OTerminal: Claude Code is too large to vendor (254 MB native binary, GitHub blocks > 100 MB)
 extensions/anthropic.claude-code/
 
 # Logs
@@ -138,7 +138,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# ----- Othcloud Terminal / VS Code build outputs -----
+# ----- OTerminal / VS Code build outputs -----
 
 # Watcher / dev compile output
 out/

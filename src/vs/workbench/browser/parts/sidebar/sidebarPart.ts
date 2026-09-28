@@ -36,7 +36,7 @@ import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js
 import { Extensions } from '../../panecomposite.js';
 
 /**
- * Othcloud Terminal: the only view containers offered as buttons at the top of the primary side
+ * OTerminal: the only view containers offered as buttons at the top of the primary side
  * bar. Containers created by moving views into the side bar (ids starting with
  * `workbench.views.service.`, e.g. the terminal) are shown too. Everything else stays reachable
  * through the command palette and keyboard shortcuts.

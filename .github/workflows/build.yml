@@ -273,13 +273,13 @@ jobs:
           Copy-Item -Recurse -Force $appSrc .build/upload/VSCode-win32-x64
           # Rename installer to a stable, version-pinned name for releases
           $installer = Get-ChildItem .build/win32-x64/user-setup/*.exe | Select-Object -First 1
-          $stable = "othcloud-terminal-${{ steps.ver.outputs.version }}-win32-x64-user-setup.exe"
+          $stable = "oterminal-${{ steps.ver.outputs.version }}-win32-x64-user-setup.exe"
           Copy-Item -Force $installer.FullName ".build/upload/$stable"
 
-      - name: Upload unzipped Othcloud Terminal app
+      - name: Upload unzipped OTerminal app
         uses: actions/upload-artifact@v4
         with:
-          name: othcloud-terminal-win32-x64
+          name: oterminal-win32-x64
           path: .build/upload/VSCode-win32-x64
           if-no-files-found: error
           retention-days: 14
@@ -287,8 +287,8 @@ jobs:
       - name: Upload installer (.exe)
         uses: actions/upload-artifact@v4
         with:
-          name: othcloud-terminal-win32-x64-user-setup
-          path: .build/upload/othcloud-terminal-*-win32-x64-user-setup.exe
+          name: oterminal-win32-x64-user-setup
+          path: .build/upload/oterminal-*-win32-x64-user-setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -454,7 +454,7 @@ jobs:
             echo "No .deb file produced!" >&2
             exit 1
           fi
-          cp "$deb_src" ".build/upload/othcloud-terminal_${{ steps.ver.outputs.version }}_amd64.deb"
+          cp "$deb_src" ".build/upload/oterminal_${{ steps.ver.outputs.version }}_amd64.deb"
           cp -r ../VSCode-linux-x64 .build/upload/VSCode-linux-x64
           ls -la .build/upload
 
@@ -485,7 +485,7 @@ jobs:
       - name: Upload Linux desktop app (raw folder)
         uses: actions/upload-artifact@v4
         with:
-          name: othcloud-terminal-linux-x64
+          name: oterminal-linux-x64
           path: .build/upload/VSCode-linux-x64
           if-no-files-found: error
           retention-days: 14
@@ -493,8 +493,8 @@ jobs:
       - name: Upload Linux .deb installer
         uses: actions/upload-artifact@v4
         with:
-          name: othcloud-terminal-linux-x64-deb
-          path: .build/upload/othcloud-terminal_*_amd64.deb
+          name: oterminal-linux-x64-deb
+          path: .build/upload/oterminal_*_amd64.deb
           if-no-files-found: error
           retention-days: 14
 
@@ -526,7 +526,7 @@ jobs:
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
-          name: othcloud-terminal-win32-x64-user-setup
+          name: oterminal-win32-x64-user-setup
           path: ./release-assets
         continue-on-error: true
 
@@ -545,7 +545,7 @@ jobs:
       - name: Download Linux desktop .deb
         uses: actions/download-artifact@v4
         with:
-          name: othcloud-terminal-linux-x64-deb
+          name: oterminal-linux-x64-deb
           path: ./release-assets
         continue-on-error: true
 
@@ -589,6 +589,6 @@ jobs:
           tag="${{ needs.bump-version.outputs.tag }}"
           gh release create "$tag" \
             --repo "${{ github.repository }}" \
-            --title "Othcloud Terminal ${{ needs.bump-version.outputs.version }}" \
+            --title "OTerminal ${{ needs.bump-version.outputs.version }}" \
             --notes "${{ steps.notes.outputs.body }}" \
             ./release-assets/*

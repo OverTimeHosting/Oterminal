@@ -16,7 +16,7 @@ import { ExtensionsMarketplaceEditorInput } from './extensionsMarketplaceEditorI
 import { ExtensionsViewPaneContainer } from './extensionsViewlet.js';
 
 /**
- * Othcloud Terminal: editor pane that hosts the Extensions marketplace UI in an editor tab.
+ * OTerminal: editor pane that hosts the Extensions marketplace UI in an editor tab.
  * Modeled after Settings/Process Explorer so it can be moved to a floating auxiliary window.
  *
  * Notes:
@@ -84,7 +84,7 @@ export class ExtensionsMarketplaceEditor extends EditorPane {
 	}
 
 	override focus(): void {
-		try { this.viewPaneContainer?.focus(); } catch { /* swallow — focus before view ready */ }
+		try { this.viewPaneContainer?.focus(); } catch { /* swallow - focus before view ready */ }
 	}
 
 	override layout(dimension: Dimension): void {

@@ -5,6 +5,12 @@
 
 rm -f /usr/bin/@@NAME@@
 
+# Compatibility links from postinst (othcloud-terminal was this package's old name)
+if [ "@@NAME@@" != "othcloud-terminal" ]; then
+	rm -f /usr/bin/othcloud-terminal /usr/share/othcloud-terminal/othcloud-terminal
+	rmdir /usr/share/othcloud-terminal 2>/dev/null || true
+fi
+
 # Uninstall the desktop entry
 if hash update-desktop-database 2>/dev/null; then
 	update-desktop-database

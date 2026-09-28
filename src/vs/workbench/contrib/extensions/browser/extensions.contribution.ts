@@ -113,7 +113,7 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 		new SyncDescriptor(ExtensionsInput)
 	]);
 
-// Othcloud Terminal: yank the Extensions view container back to its default Sidebar location on startup.
+// OTerminal: yank the Extensions view container back to its default Sidebar location on startup.
 // shouldBeHidden() in paneCompositeBar then hides the icon - net effect: Extensions never appears in
 // the activity bar or secondary sidebar even if the user previously dragged it there.
 class OthcloudExtensionsLocationGuard implements IWorkbenchContribution {
@@ -153,7 +153,7 @@ export const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainer
 		alwaysUseContainerInfo: true,
 	}, ViewContainerLocation.Sidebar);
 
-// Othcloud Terminal: Extensions activity bar icon is hidden - surface the entry in the gear (manage) menu.
+// OTerminal: Extensions activity bar icon is hidden - surface the entry in the gear (manage) menu.
 MenuRegistry.appendMenuItem(MenuId.GlobalActivity, {
 	command: {
 		id: VIEWLET_ID,

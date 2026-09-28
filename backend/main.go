@@ -128,7 +128,7 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	log.Printf("othcloud terminal backend listening on %s (mongo db=%s)", addr, mongoDB)
+	log.Printf("OTerminal backend listening on %s (mongo db=%s)", addr, mongoDB)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("server: %v", err)
 	}
