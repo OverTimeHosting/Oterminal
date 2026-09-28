@@ -393,6 +393,8 @@ export class CustomMenubarControl extends MenubarControl {
 	private visible: boolean = true;
 	private actionRunner: IActionRunner;
 	private readonly webNavigationMenu = this._register(this.menuService.createMenu(MenuId.MenubarHomeMenu, this.contextKeyService));
+	// othcloud: view buttons (Source Control, GitHub Repos, OTHCloud) at the top of the hamburger menu
+	private readonly compactNavigationMenu = this._register(this.menuService.createMenu(MenuId.MenubarCompactNavigation, this.contextKeyService));
 
 	private readonly _onVisibilityChange: Emitter<boolean>;
 	private readonly _onFocusStateChange: Emitter<boolean>;
@@ -731,6 +733,26 @@ export class CustomMenubarControl extends MenubarControl {
 		return webNavigationActions;
 	}
 
+	private getCompactNavigationActions(): IAction[] {
+		const actions: IAction[] = [];
+		for (const [, groupActions] of this.compactNavigationMenu.getActions()) {
+			if (actions.length) {
+				actions.push(new Separator());
+			}
+			for (const action of groupActions) {
+				if (action instanceof MenuItemAction) {
+					const title = typeof action.item.title === 'string'
+						? action.item.title
+						: action.item.title.mnemonicTitle ?? action.item.title.value;
+					actions.push(toAction({
+						id: action.id, label: mnemonicMenuLabel(title), class: action.class, enabled: action.enabled, run: () => this.commandService.executeCommand(action.id)
+					}));
+				}
+			}
+		}
+		return actions;
+	}
+
 	private getMenuBarOptions(): IMenuBarOptions {
 		return {
 			enableMnemonics: this.currentEnableMenuBarMnemonics,
@@ -749,7 +771,8 @@ export class CustomMenubarControl extends MenubarControl {
 				}
 
 				return this.getWebNavigationActions();
-			}
+			},
+			getCompactMenuLeadingActions: () => this.getCompactNavigationActions()
 		};
 	}
 
@@ -802,6 +825,8 @@ export class CustomMenubarControl extends MenubarControl {
 				this.menubar.blur();
 			}
 		}));
+
+		this._register(this.compactNavigationMenu.onDidChange(() => this.updateMenubar()));
 
 		// Mnemonics require fullscreen in web
 		if (isWeb) {

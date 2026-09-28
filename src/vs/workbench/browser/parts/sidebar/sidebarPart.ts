@@ -30,32 +30,12 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Action2, IMenuService, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { Separator } from '../../../../base/common/actions.js';
 import { ToggleActivityBarVisibilityActionId } from '../../actions/layoutActions.js';
-import { localize, localize2 } from '../../../../nls.js';
+import { localize2 } from '../../../../nls.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js';
 import { Extensions } from '../../panecomposite.js';
 
-/**
- * OTerminal: the only view containers offered as buttons at the top of the primary side
- * bar. Containers created by moving views into the side bar (ids starting with
- * `workbench.views.service.`, e.g. the terminal) are shown too. Everything else stays reachable
- * through the command palette and keyboard shortcuts.
- */
-const SIDEBAR_UNTITLED_VIEW_CONTAINERS = new Set<string>([
-	'workbench.view.othcloudAccount',
-]);
-
-const SIDEBAR_VIEW_CONTAINER_ALLOWLIST = new Set<string>([
-	'workbench.view.explorer',
-	'workbench.view.scm',
-	'workbench.view.githubRepos',
-	'workbench.view.othcloudAccount',
-]);
-
 export class SidebarPart extends AbstractPaneCompositePart {
-
-	/** othcloud: whether the open view container is shown without the side bar title. */
-	private titleHiddenForActiveContainer = false;
 
 	static readonly activeViewletSettingsKey = 'workbench.sidebar.activeviewletid';
 
@@ -106,8 +86,9 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	) {
 		super(
 			Parts.SIDEBAR_PART,
-			// othcloud: taller header so the view buttons at the top can show their names
-			{ hasTitle: true, headerHeight: 50, titleHidden: () => this.titleHiddenForActiveContainer, trailingSeparator: false, borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0 },
+			// othcloud: no title row; the side bar only ever shows the Explorer, whose folder header
+			// carries its actions (see `untitled-view-container` in paneCompositePart.css)
+			{ hasTitle: true, titleHidden: () => true, trailingSeparator: false, borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0 },
 			SidebarPart.activeViewletSettingsKey,
 			ActiveViewletContext.bindTo(contextKeyService),
 			SidebarFocusContext.bindTo(contextKeyService),
@@ -132,9 +113,6 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			extensionService,
 			menuService,
 		);
-
-		// othcloud: some view containers render without the side bar title (see SIDEBAR_UNTITLED_VIEW_CONTAINERS)
-		this._register(this.onDidPaneCompositeOpen(composite => this.updateTitleVisibility(composite.getId())));
 
 		// Track visible view containers for auto-hide
 		this.visibleViewContainersTracker = this._register(instantiationService.createInstance(VisibleViewContainersTracker, ViewContainerLocation.Sidebar));
@@ -183,6 +161,11 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		this.rememberActivityBarVisiblePosition();
 	}
 
+	override create(parent: HTMLElement): void {
+		super.create(parent);
+		this.element.classList.add('untitled-view-container');
+	}
+
 	override updateStyles(): void {
 		super.updateStyles();
 
@@ -225,10 +208,6 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			placeholderViewContainersKey: ActivitybarPart.placeholderViewContainersKey,
 			viewContainersWorkspaceStateKey: ActivitybarPart.viewContainersWorkspaceStateKey,
 			icon: true,
-			// othcloud: show each view container's name under its icon, and only offer these ones
-			showLabels: true,
-			compositeFilter: id => SIDEBAR_VIEW_CONTAINER_ALLOWLIST.has(id) || id.startsWith('workbench.views.service.'),
-			labelOverrides: { 'workbench.view.githubRepos': localize('sidebar.githubRepos.short', "GitHub Repos") },
 			orientation: ActionsOrientation.HORIZONTAL,
 			recomputeSizes: true,
 			activityHoverOptions: {
@@ -260,44 +239,16 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		};
 	}
 
-	private updateTitleVisibility(viewContainerId: string): void {
-		const hidden = SIDEBAR_UNTITLED_VIEW_CONTAINERS.has(viewContainerId);
-		this.element?.classList.toggle('untitled-view-container', hidden);
-		if (hidden !== this.titleHiddenForActiveContainer) {
-			this.titleHiddenForActiveContainer = hidden;
-			if (this.dimension && this.contentPosition) {
-				this.layout(this.dimension.width, this.dimension.height, this.contentPosition.top, this.contentPosition.left);
-			}
-		}
-	}
-
 	protected shouldShowCompositeBar(): boolean {
-		const activityBarPosition = this.configurationService.getValue<ActivityBarPosition>(LayoutSettings.ACTIVITY_BAR_LOCATION);
-		if (activityBarPosition !== ActivityBarPosition.TOP && activityBarPosition !== ActivityBarPosition.BOTTOM) {
-			return false;
-		}
-
-		// Check if auto-hide is enabled and there's only one visible view container
-		const autoHide = this.configurationService.getValue<boolean>(LayoutSettings.ACTIVITY_BAR_AUTO_HIDE);
-		if (autoHide) {
-			// Use visible composite count from the composite bar if available (considers pinned state),
-			// otherwise fall back to the tracker's count (based on active view descriptors).
-			// Note: We access paneCompositeBar directly to avoid circular calls with getVisiblePaneCompositeIds()
-			const visibleCount = this.visibleViewContainersTracker.visibleCount;
-			if (visibleCount <= 1) {
-				return false;
-			}
-		}
-
-		return true;
+		// othcloud: the primary side bar only ever holds the Explorer (see
+		// navigationLayout.contribution.ts), so there are no view buttons to switch between. The
+		// other views open in the secondary side bar from the title bar's hamburger menu.
+		return false;
 	}
 
 	private shouldShowActivityBar(): boolean {
-		if (this.shouldShowCompositeBar()) {
-			return false;
-		}
-
-		return this.configurationService.getValue(LayoutSettings.ACTIVITY_BAR_LOCATION) !== ActivityBarPosition.HIDDEN;
+		// othcloud: no activity bar next to the side bar either (see shouldShowCompositeBar)
+		return false;
 	}
 
 	protected getCompositeBarPosition(): CompositeBarPosition {
@@ -340,21 +291,7 @@ export class SidebarPart extends AbstractPaneCompositePart {
 	}
 
 	async focusActivityBar(): Promise<void> {
-		if (this.configurationService.getValue(LayoutSettings.ACTIVITY_BAR_LOCATION) === ActivityBarPosition.HIDDEN) {
-			await this.configurationService.updateValue(LayoutSettings.ACTIVITY_BAR_LOCATION, this.getRememberedActivityBarVisiblePosition());
-
-			this.onDidChangeActivityBarLocation();
-		}
-
-		if (this.shouldShowCompositeBar()) {
-			this.focusCompositeBar();
-		} else {
-			if (!this.layoutService.isVisible(Parts.ACTIVITYBAR_PART)) {
-				this.layoutService.setPartHidden(false, Parts.ACTIVITYBAR_PART);
-			}
-
-			this.activityBarPart.show(true);
-		}
+		// othcloud: there is no activity bar to focus (see shouldShowActivityBar)
 	}
 
 	private registerActions(): void {

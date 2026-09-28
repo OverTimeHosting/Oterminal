@@ -403,7 +403,8 @@ const viewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewEx
 	order: 6,
 	storageId: 'workbench.githubRepos.state',
 	hideIfEmpty: false,
-}, ViewContainerLocation.Sidebar);
+	// OTerminal: the primary side bar is reserved for the Explorer (see navigationLayout.contribution.ts)
+}, ViewContainerLocation.AuxiliaryBar);
 
 const viewDescriptor: IViewDescriptor = {
 	id: VIEW_ID,
@@ -417,9 +418,9 @@ const viewDescriptor: IViewDescriptor = {
 
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([viewDescriptor], viewContainer);
 
-// Open the GitHub Repositories sidebar by default the first time a profile is used, so a fresh
-// install lands on it instead of the Explorer. The user's later choice of sidebar tab is then
-// respected on subsequent launches.
+// Open GitHub Repositories in the secondary side bar the first time a profile is used, so a fresh
+// install shows it next to the Explorer. Whether the user keeps it open is then respected on
+// subsequent launches.
 class GithubReposDefaultViewContribution implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.githubReposDefaultView';
 	private static readonly SHOWN_KEY = 'githubRepos.defaultViewShown';
@@ -432,7 +433,7 @@ class GithubReposDefaultViewContribution implements IWorkbenchContribution {
 			return;
 		}
 		storageService.store(GithubReposDefaultViewContribution.SHOWN_KEY, true, StorageScope.PROFILE, StorageTarget.MACHINE);
-		void paneCompositePartService.openPaneComposite(VIEW_CONTAINER_ID, ViewContainerLocation.Sidebar, false);
+		void paneCompositePartService.openPaneComposite(VIEW_CONTAINER_ID, ViewContainerLocation.AuxiliaryBar, false);
 	}
 }
 registerWorkbenchContribution2(GithubReposDefaultViewContribution.ID, GithubReposDefaultViewContribution, WorkbenchPhase.AfterRestored);

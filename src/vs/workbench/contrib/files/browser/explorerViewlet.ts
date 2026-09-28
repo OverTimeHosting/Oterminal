@@ -145,7 +145,8 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 			containerIcon: explorerViewIcon,
 			ctorDescriptor: new SyncDescriptor(ExplorerView),
 			order: 1,
-			canMoveView: true,
+			// OTerminal: the folder tree always stays in the Explorer (can't be dragged elsewhere or hidden)
+			canMoveView: false,
 			canToggleVisibility: false,
 			focusCommand: {
 				id: 'workbench.explorer.fileView.focus'
@@ -173,7 +174,9 @@ export class ExplorerViewPaneContainer extends ViewPaneContainer {
 		@ILogService logService: ILogService,
 	) {
 
-		super(VIEWLET_ID, { mergeViewWithContainerWhenSingleView: true }, instantiationService, configurationService, layoutService, contextMenuService, telemetryService, extensionService, themeService, storageService, contextService, viewDescriptorService, logService);
+		// OTerminal: never merge the folder view into the side bar title. The side bar has no title
+		// row (see SidebarPart), so the folder header has to stay to keep its actions.
+		super(VIEWLET_ID, { mergeViewWithContainerWhenSingleView: false }, instantiationService, configurationService, layoutService, contextMenuService, telemetryService, extensionService, themeService, storageService, contextService, viewDescriptorService, logService);
 
 		this.viewletVisibleContextKey = ExplorerViewletVisibleContext.bindTo(contextKeyService);
 		this._register(this.contextService.onDidChangeWorkspaceName(e => this.updateTitleArea()));

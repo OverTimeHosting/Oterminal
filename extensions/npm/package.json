@@ -80,7 +80,7 @@
           "name": "%view.name%",
           "when": "npm:showScriptExplorer",
           "icon": "$(json)",
-          "visibility": "hidden",
+          "visibility": "visible",
           "contextualTitle": "%view.name%"
         }
       ]

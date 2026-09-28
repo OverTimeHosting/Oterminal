@@ -1,0 +1,53 @@
+{
+	"name": "othcloud-remote",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "1.0.0",
+	"publisher": "othcloud",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.82.0"
+	},
+	"extensionKind": [
+		"ui"
+	],
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
+	"enabledApiProposals": [
+		"resolvers"
+	],
+	"activationEvents": [
+		"onResolveRemoteAuthority:othcloud-dev"
+	],
+	"main": "./out/extension",
+	"scripts": {
+		"compile": "gulp compile-extension:othcloud-remote",
+		"watch": "gulp watch-extension:othcloud-remote"
+	},
+	"contributes": {
+		"resourceLabelFormatters": [
+			{
+				"scheme": "vscode-remote",
+				"authority": "othcloud-dev+*",
+				"formatting": {
+					"label": "${path}",
+					"separator": "/",
+					"tildify": false,
+					"workspaceSuffix": "OTHCloud",
+					"workspaceTooltip": "%workspaceTooltip%"
+				}
+			}
+		]
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/OverTimeHosting/othcloud-terminal.git"
+	}
+}

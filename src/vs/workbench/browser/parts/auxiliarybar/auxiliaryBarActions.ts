@@ -282,11 +282,7 @@ class ToggleMaximizedAuxiliaryBar extends Action2 {
 				condition: AuxiliaryBarMaximizedContext,
 				tooltip: localize('restoreAuxiliaryBar', 'Restore Secondary Side Bar'),
 			},
-			menu: {
-				id: MenuId.AuxiliaryBarTitle,
-				group: 'navigation',
-				order: 1,
-			}
+			// OTerminal: no maximize button in the secondary side bar title (still in the command palette)
 		});
 	}
 

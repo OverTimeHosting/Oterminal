@@ -7,24 +7,19 @@ import { localize } from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IViewsRegistry, IViewDescriptor, Extensions as ViewExtensions } from '../../../common/views.js';
-import { VIEW_CONTAINER } from '../../files/browser/explorerViewlet.js';
+import { IViewDescriptor } from '../../../common/views.js';
 import { ITimelineService, TimelinePaneId } from '../common/timeline.js';
 import { TimelineHasProviderContext, TimelineService } from '../common/timelineService.js';
 import { TimelinePane } from './timelinePane.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ISubmenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ICommandHandler, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
-import { ExplorerFolderContext } from '../../files/common/files.js';
-import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { URI } from '../../../../base/common/uri.js';
 
 const timelineViewIcon = registerIcon('timeline-view-icon', Codicon.history, localize('timelineViewIcon', 'View icon of the timeline view.'));
-const timelineOpenIcon = registerIcon('timeline-open', Codicon.history, localize('timelineOpenIcon', 'Icon for the open timeline action.'));
 
 export class TimelinePaneDescriptor implements IViewDescriptor {
 	readonly id = TimelinePaneId;
@@ -63,7 +58,7 @@ configurationRegistry.registerConfiguration({
 	}
 });
 
-Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([new TimelinePaneDescriptor()], VIEW_CONTAINER);
+// OTerminal: the Timeline view is not registered, so the Explorer only shows the file tree.
 
 namespace OpenTimelineAction {
 
@@ -83,16 +78,7 @@ namespace OpenTimelineAction {
 
 CommandsRegistry.registerCommand(OpenTimelineAction.ID, OpenTimelineAction.handler());
 
-MenuRegistry.appendMenuItem(MenuId.ExplorerContext, ({
-	group: '4_timeline',
-	order: 1,
-	command: {
-		id: OpenTimelineAction.ID,
-		title: OpenTimelineAction.LABEL,
-		icon: timelineOpenIcon
-	},
-	when: ContextKeyExpr.and(ExplorerFolderContext.toNegated(), ResourceContextKey.HasResource, TimelineHasProviderContext)
-}));
+// OTerminal: no "Open Timeline" in the Explorer context menu (there is no Timeline view).
 
 const timelineFilter = registerIcon('timeline-filter', Codicon.filter, localize('timelineFilter', 'Icon for the filter timeline action.'));
 

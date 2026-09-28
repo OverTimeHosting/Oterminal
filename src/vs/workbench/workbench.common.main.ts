@@ -178,9 +178,10 @@ import './services/accounts/browser/defaultAccount.js';
 // Telemetry
 import './contrib/telemetry/browser/telemetry.contribution.js';
 
-// Title Bar Activity Bar (renders the side bar's activity icons in the window title bar)
+// OTerminal layout (Explorer on the left, other views on the right, terminal location)
 import './contrib/othcloudLayout/browser/scmGraphInPanel.contribution.js';
 import './contrib/othcloudLayout/browser/terminalLocation.contribution.js';
+import './contrib/othcloudLayout/browser/navigationLayout.contribution.js';
 
 // Preferences
 import './contrib/preferences/browser/preferences.contribution.js';

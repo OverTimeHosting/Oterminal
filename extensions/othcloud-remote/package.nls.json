@@ -1,0 +1,5 @@
+{
+	"displayName": "OTHCloud Remote",
+	"description": "Opens OTHCloud dev environments as remote windows.",
+	"workspaceTooltip": "Running in an OTHCloud dev environment"
+}

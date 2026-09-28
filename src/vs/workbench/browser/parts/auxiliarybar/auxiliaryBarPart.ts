@@ -34,6 +34,14 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js';
 import { Extensions } from '../../panecomposite.js';
 
+/**
+ * othcloud: view containers that render their own header and are shown without the part's title
+ * (see `untitled-view-container` in paneCompositePart.css).
+ */
+const UNTITLED_VIEW_CONTAINERS = new Set<string>([
+	'workbench.view.othcloudAccount',
+]);
+
 interface IAuxiliaryBarPartConfiguration {
 	position: ActivityBarPosition;
 
@@ -78,6 +86,8 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	readonly priority = LayoutPriority.Low;
 
 	private configuration: IAuxiliaryBarPartConfiguration;
+	/** othcloud: whether the open view container is shown without the part's title. */
+	private titleHiddenForActiveContainer = false;
 	private readonly visibleViewContainersTracker: VisibleViewContainersTracker;
 
 	constructor(
@@ -100,6 +110,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			Parts.AUXILIARYBAR_PART,
 			{
 				hasTitle: true,
+				titleHidden: () => this.titleHiddenForActiveContainer,
 				trailingSeparator: true,
 				borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0,
 			},
@@ -127,6 +138,9 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			extensionService,
 			menuService,
 		);
+
+		// othcloud: some view containers render without the title (see UNTITLED_VIEW_CONTAINERS)
+		this._register(this.onDidPaneCompositeOpen(composite => this.updateTitleVisibility(composite.getId())));
 
 		// Track visible view containers for auto-hide
 		this.visibleViewContainersTracker = this._register(instantiationService.createInstance(VisibleViewContainersTracker, ViewContainerLocation.AuxiliaryBar));
@@ -257,26 +271,9 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	}
 
 	protected shouldShowCompositeBar(): boolean {
-		if (this.configuration.position === ActivityBarPosition.HIDDEN) {
-			return false;
-		}
-
-		// Check if auto-hide is enabled and there's only one visible view container
-		// while the activity bar is configured to be top or bottom.
-		if (this.configuration.position === ActivityBarPosition.TOP || this.configuration.position === ActivityBarPosition.BOTTOM) {
-			const autoHide = this.configurationService.getValue<boolean>(LayoutSettings.ACTIVITY_BAR_AUTO_HIDE);
-			if (autoHide) {
-				// Use visible composite count from the composite bar if available (considers pinned state),
-				// otherwise fall back to the tracker's count (based on active view descriptors).
-				// Note: We access paneCompositeBar directly to avoid circular calls with getVisiblePaneCompositeIds()
-				const visibleCount = this.visibleViewContainersTracker.visibleCount;
-				if (visibleCount <= 1) {
-					return false;
-				}
-			}
-		}
-
-		return true;
+		// othcloud: no tab buttons here. Views are opened in the secondary side bar from the title
+		// bar's hamburger menu (see navigationLayout.contribution.ts) and show their own title.
+		return false;
 	}
 
 	protected getCompositeBarPosition(): CompositeBarPosition {
@@ -286,6 +283,17 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			case ActivityBarPosition.HIDDEN: return CompositeBarPosition.TITLE;
 			case ActivityBarPosition.DEFAULT: return CompositeBarPosition.TITLE;
 			default: return CompositeBarPosition.TITLE;
+		}
+	}
+
+	private updateTitleVisibility(viewContainerId: string): void {
+		const hidden = UNTITLED_VIEW_CONTAINERS.has(viewContainerId);
+		this.element?.classList.toggle('untitled-view-container', hidden);
+		if (hidden !== this.titleHiddenForActiveContainer) {
+			this.titleHiddenForActiveContainer = hidden;
+			if (this.dimension && this.contentPosition) {
+				this.layout(this.dimension.width, this.dimension.height, this.contentPosition.top, this.contentPosition.left);
+			}
 		}
 	}
 

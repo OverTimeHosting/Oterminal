@@ -217,7 +217,8 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 		@IOpenerService openerService: IOpenerService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService
 	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+		// OTerminal: the folder tree is always expanded, even if an older layout stored it collapsed
+		super({ ...options, expanded: true }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this.delegate = options.delegate;
 		this.resourceContext = instantiationService.createInstance(ResourceContextKey);
@@ -237,6 +238,17 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 
 
 		this.explorerService.registerView(this);
+	}
+
+	// OTerminal: the folder tree can't be collapsed from its header (or anything else), so the files
+	// are always visible. The view container asks panes to be collapsible whenever it holds more
+	// than one view (e.g. with NPM Scripts), so this overrides the setter too.
+	override get collapsible(): boolean {
+		return false;
+	}
+
+	override set collapsible(_collapsible: boolean) {
+		// always false, see the getter
 	}
 
 	get autoReveal() {

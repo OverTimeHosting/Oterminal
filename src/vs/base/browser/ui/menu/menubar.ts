@@ -41,6 +41,8 @@ export interface IMenuBarOptions {
 	compactMenuOpensBelow?: boolean;
 	actionRunner?: IActionRunner;
 	getCompactMenuActions?: () => IAction[];
+	/** Actions listed at the top of the compact (hamburger) menu, above the menu bar's menus. */
+	getCompactMenuLeadingActions?: () => IAction[];
 }
 
 export interface MenuBarMenu {
@@ -528,6 +530,12 @@ export class MenuBar extends Disposable {
 		// Overflow
 		if (this.isCompact) {
 			this.overflowMenu.actions = [];
+			const compactMenuLeadingActions = this.options.getCompactMenuLeadingActions?.();
+			if (compactMenuLeadingActions && compactMenuLeadingActions.length) {
+				this.overflowMenu.actions.push(...compactMenuLeadingActions);
+				this.overflowMenu.actions.push(new Separator());
+			}
+
 			for (let idx = this.numMenusShown; idx < this.menus.length; idx++) {
 				this.overflowMenu.actions.push(new SubmenuAction(`menubar.submenu.${this.menus[idx].label}`, this.menus[idx].label, this.menus[idx].actions || []));
 			}
