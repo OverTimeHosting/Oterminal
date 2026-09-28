@@ -57,6 +57,7 @@ import { isAuxiliaryWindow, mainWindow } from '../../../../base/browser/window.j
 import { GroupIdentifier } from '../../../common/editor.js';
 import { getActiveWindow } from '../../../../base/browser/dom.js';
 import { hasKey, isString } from '../../../../base/common/types.js';
+import { applyOthcloudClaudeLaunch } from './othcloudClaudeLaunch.js';
 
 interface IBackgroundTerminal {
 	instance: ITerminalInstance;
@@ -1015,6 +1016,9 @@ export class TerminalService extends Disposable implements ITerminalService {
 			: typeof options?.location === 'object' ? hasKey(options.location, { parentTerminal: true }) : false;
 
 		await this._resolveCwd(shellLaunchConfig, splitActiveTerminal, options);
+
+		// othcloud: Claude Code terminals start connected to the othcloud-mcp server
+		await applyOthcloudClaudeLaunch(shellLaunchConfig, this._commandService, this._workspaceContextService, this._logService);
 
 		// Launch the contributed profile
 		// If it's a custom pty implementation, we did not await the profiles ready, so

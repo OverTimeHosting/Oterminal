@@ -1,0 +1,101 @@
+{
+	"name": "othcloud-mcp",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "1.0.0",
+	"publisher": "othcloud",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.5.0"
+	},
+	"capabilities": {
+		"virtualWorkspaces": false,
+		"untrustedWorkspaces": {
+			"supported": false,
+			"description": "%untrusted.description%"
+		}
+	},
+	"extensionDependencies": [
+		"vscode.git"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension",
+	"scripts": {
+		"compile": "gulp compile-extension:othcloud-mcp",
+		"watch": "gulp watch-extension:othcloud-mcp"
+	},
+	"contributes": {
+		"configuration": {
+			"title": "OTHCloud MCP",
+			"properties": {
+				"othcloud.mcp.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.enabled%"
+				},
+				"othcloud.mcp.host": {
+					"type": "string",
+					"default": "127.0.0.1",
+					"description": "%config.host%"
+				},
+				"othcloud.mcp.port": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 65535,
+					"description": "%config.port%"
+				},
+				"othcloud.mcp.allowedOrigins": {
+					"type": "array",
+					"items": { "type": "string" },
+					"default": [],
+					"description": "%config.allowedOrigins%"
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "othcloud.mcp.showStatus",
+				"title": "%cmd.showStatus%",
+				"category": "OTHCloud MCP"
+			},
+			{
+				"command": "othcloud.mcp.copyConfig",
+				"title": "%cmd.copyConfig%",
+				"category": "OTHCloud MCP"
+			},
+			{
+				"command": "othcloud.mcp.restart",
+				"title": "%cmd.restart%",
+				"category": "OTHCloud MCP"
+			},
+			{
+				"command": "othcloud.mcp.revokeToken",
+				"title": "%cmd.revokeToken%",
+				"category": "OTHCloud MCP"
+			},
+			{
+				"command": "othcloud.mcp.claudeLaunchConfig",
+				"title": "%cmd.claudeLaunchConfig%",
+				"category": "OTHCloud MCP"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "othcloud.mcp.claudeLaunchConfig",
+					"when": "false"
+				}
+			]
+		}
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/OverTimeHosting/othcloud-terminal.git"
+	}
+}

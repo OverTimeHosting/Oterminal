@@ -41,6 +41,7 @@ export const dirs = [
 	'extensions/notebook-renderers',
 	'extensions/npm',
 	'extensions/othcloud-discord-presence',
+	'extensions/othcloud-mcp',
 	'extensions/php-language-features',
 	'extensions/references-view',
 	'extensions/search-result',
