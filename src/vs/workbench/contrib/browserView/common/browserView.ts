@@ -9,6 +9,7 @@ import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import {
 	IBrowserViewBounds,
+	IBrowserViewOverlayRect,
 	IBrowserViewNavigationEvent,
 	IBrowserViewLoadingEvent,
 	IBrowserViewLoadError,
@@ -108,6 +109,8 @@ export interface IBrowserViewModel extends IDisposable {
 
 	layout(bounds: IBrowserViewBounds): Promise<void>;
 	setVisible(visible: boolean): Promise<void>;
+	/** See {@link IBrowserViewService.setOverlayMirrors}. */
+	setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void>;
 	loadURL(url: string): Promise<void>;
 	goBack(): Promise<void>;
 	goForward(): Promise<void>;
@@ -286,6 +289,10 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	async setVisible(visible: boolean): Promise<void> {
 		this._visible = visible; // Set optimistically so model is in sync immediately
 		return this.browserViewService.setVisible(this.id, visible);
+	}
+
+	async setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void> {
+		return this.browserViewService.setOverlayMirrors(windowId, this.id, rects, zoomFactor);
 	}
 
 	async loadURL(url: string): Promise<void> {

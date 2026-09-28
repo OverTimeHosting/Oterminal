@@ -14,7 +14,10 @@ export enum BrowserOverlayType {
 	QuickInput = 'quickInput',
 	Hover = 'hover',
 	Dialog = 'dialog',
+	/** Notification toasts, which pop up on their own */
 	Notification = 'notification',
+	/** The notification center, which is only opened on purpose */
+	NotificationCenter = 'notificationCenter',
 	Unknown = 'unknown'
 }
 
@@ -26,9 +29,9 @@ const OVERLAY_DEFINITIONS: ReadonlyArray<{ className: string; type: BrowserOverl
 	{ className: 'suggest-details-container', type: BrowserOverlayType.Hover },
 	{ className: 'monaco-dialog-modal-block', type: BrowserOverlayType.Dialog },
 	{ className: 'monaco-modal-editor-block', type: BrowserOverlayType.Dialog },
-	{ className: 'notifications-center', type: BrowserOverlayType.Notification },
+	{ className: 'notifications-center', type: BrowserOverlayType.NotificationCenter },
 	{ className: 'notification-toast-container', type: BrowserOverlayType.Notification },
-	// The editor drag-to-split drop indicator (the gray overlay) — without this the native browser
+	// The editor drag-to-split drop indicator (the gray overlay) - without this the native browser
 	// view stays on top and the indicator is only visible behind it.
 	{ className: 'editor-group-overlay-indicator', type: BrowserOverlayType.Unknown },
 	// Context view is very generic, so treat the content as unknown
@@ -149,7 +152,7 @@ export class BrowserOverlayManager extends Disposable implements IBrowserOverlay
 		// Yield overlays from main document live collections
 		for (const entry of this._overlayCollections.values()) {
 			for (const element of entry.collection) {
-				yield { element: element as HTMLElement, type: entry.type };
+				yield { element: element as HTMLElement, type: this.refineType(element as HTMLElement, entry.type) };
 			}
 		}
 
@@ -175,6 +178,20 @@ export class BrowserOverlayManager extends Disposable implements IBrowserOverlay
 				yield* cache;
 			}
 		}
+	}
+
+	/**
+	 * A context view is generic, but the workbench's hovers render inside one: count a
+	 * context view that holds a hover as that hover, so it is treated like one.
+	 */
+	private refineType(element: HTMLElement, type: BrowserOverlayType): BrowserOverlayType {
+		if (type === BrowserOverlayType.Unknown && element.classList.contains('context-view')) {
+			// eslint-disable-next-line no-restricted-syntax
+			if (element.getElementsByClassName('monaco-hover').length > 0) {
+				return BrowserOverlayType.Hover;
+			}
+		}
+		return type;
 	}
 
 	private updateTrackedElements(shouldEmit = false): void {

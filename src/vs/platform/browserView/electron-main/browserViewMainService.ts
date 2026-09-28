@@ -6,7 +6,9 @@
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
-import { IBrowserViewBounds, IBrowserViewKeyDownEvent, IBrowserViewState, IBrowserViewService, BrowserViewStorageScope, IBrowserViewCaptureScreenshotOptions, IBrowserViewFindInPageOptions } from '../common/browserView.js';
+import { IBrowserViewBounds, IBrowserViewKeyDownEvent, IBrowserViewState, IBrowserViewService, BrowserViewStorageScope, IBrowserViewCaptureScreenshotOptions, IBrowserViewFindInPageOptions, IBrowserViewOverlayRect } from '../common/browserView.js';
+import { BrowserWindow, webContents } from 'electron';
+import { BrowserOverlayMirror } from './browserOverlayMirror.js';
 import { ICDPTarget, CDPBrowserVersion, CDPWindowBounds, CDPTargetInfo, ICDPConnection, ICDPBrowserTarget } from '../common/cdp/types.js';
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
 import { createDecorator, IInstantiationService } from '../../instantiation/common/instantiation.js';
@@ -281,6 +283,27 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 
 	async setVisible(id: string, visible: boolean): Promise<void> {
 		return this._getBrowserView(id).setVisible(visible);
+	}
+
+	private readonly overlayMirrors = this._register(new DisposableMap<number, BrowserOverlayMirror>());
+
+	async setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void> {
+		let mirror = this.overlayMirrors.get(windowId);
+		if (!mirror) {
+			if (!rects.length) {
+				return;
+			}
+			// A workbench window is known by its id, an auxiliary window by its web contents' id
+			const win = this.windowsMainService.getWindowById(windowId)?.win
+				?? (() => { const contents = webContents.fromId(windowId); return contents ? BrowserWindow.fromWebContents(contents) : null; })();
+			if (!win || win.isDestroyed()) {
+				return;
+			}
+			mirror = new BrowserOverlayMirror(win);
+			this.overlayMirrors.set(windowId, mirror);
+			win.once('closed', () => this.overlayMirrors.deleteAndDispose(windowId));
+		}
+		mirror.update(owner, rects, zoomFactor);
 	}
 
 	async loadURL(id: string, url: string): Promise<void> {

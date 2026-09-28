@@ -5,7 +5,7 @@
 
 import './media/browser.css';
 import { localize } from '../../../../nls.js';
-import { $, addDisposableListener, Dimension, EventType, IDomPosition, registerExternalFocusChecker } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, Dimension, EventType, IDomNodePagePosition, IDomPosition, registerExternalFocusChecker } from '../../../../base/browser/dom.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { RawContextKey, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -21,12 +21,12 @@ import { IBrowserViewModel } from '../../browserView/common/browserView.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { IBrowserViewKeyDownEvent, IBrowserViewNavigationEvent, IBrowserViewLoadError, BrowserNewPageLocation } from '../../../../platform/browserView/common/browserView.js';
+import { IBrowserViewKeyDownEvent, IBrowserViewNavigationEvent, IBrowserViewLoadError, BrowserNewPageLocation, IBrowserViewOverlayRect } from '../../../../platform/browserView/common/browserView.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
-import { BrowserOverlayManager, BrowserOverlayType, IBrowserOverlayInfo } from './overlayManager.js';
+import { BrowserOverlayManager, BrowserOverlayType } from './overlayManager.js';
 import { getZoomFactor, onDidChangeZoomLevel } from '../../../../base/browser/browser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -196,7 +196,9 @@ export class BrowserEditor extends EditorPane {
 	private overlayManager: BrowserOverlayManager | undefined;
 	private _elementSelectionCts: CancellationTokenSource | undefined;
 	private _screenshotTimeout: ReturnType<typeof setTimeout> | undefined;
-	private _notificationOverlays: readonly IBrowserOverlayInfo[] = [];
+	/** Overlays over the page that are mirrored above it rather than pausing it. */
+	private _mirroredOverlays: IDomNodePagePosition[] = [];
+	private _lastMirrorKey: string | undefined;
 
 	constructor(
 		group: IEditorGroup,
@@ -322,7 +324,7 @@ export class BrowserEditor extends EditorPane {
 		}
 
 		// `hideChrome` inputs (used by the Othcloud sidebar) render as content-
-		// only tabs — no navigation bar / URL input / quick-links.
+		// only tabs - no navigation bar / URL input / quick-links.
 		this._toolbarElement.style.display = input.hideChrome ? 'none' : '';
 
 		this._inputDisposables.clear();
@@ -438,6 +440,11 @@ export class BrowserEditor extends EditorPane {
 	protected override setEditorVisible(visible: boolean): void {
 		this._editorVisible = visible;
 		this.updateVisibility();
+		if (visible && this._model) {
+			this.layoutBrowserContainer();
+		} else {
+			this.clearOverlayMirrors();
+		}
 	}
 
 	/**
@@ -499,15 +506,17 @@ export class BrowserEditor extends EditorPane {
 		if (!this.overlayManager) {
 			return;
 		}
-		// Modal / transient overlays (menus, dialogs, hovers, quick input, and the editor
-		// drag-to-split drop indicator) pause the view: the native WebContentsView is hidden behind a
-		// screenshot so the overlay renders cleanly on top. Notifications are different — they can be
-		// persistent (e.g. an MCP status toast), so pausing would freeze the whole page. Instead the
-		// view is only clipped above them in layoutBrowserContainer(), keeping the rest of the page
-		// interactive and resizable.
+		// Notifications, the notification center and hovers are mirrored on top of the live page
+		// (see BrowserOverlayMirror in the main process): the page keeps its full size and keeps
+		// working, and the overlay shows and reacts as if it were drawn over it. They used to pause
+		// the page into a screenshot, which froze it for as long as a toast or tooltip was up.
+		//
+		// Menus, dialogs, quick input and the drag-to-split drop indicator still pause the view:
+		// they are short-lived, take the keyboard, and are only opened on purpose.
 		const allOverlays = this.overlayManager.getOverlappingOverlays(this._browserContainer);
-		this._notificationOverlays = allOverlays.filter(overlay => overlay.type === BrowserOverlayType.Notification);
-		const pausingOverlays = allOverlays.filter(overlay => overlay.type !== BrowserOverlayType.Notification);
+		const isMirrored = (type: BrowserOverlayType) => type === BrowserOverlayType.Notification || type === BrowserOverlayType.NotificationCenter || type === BrowserOverlayType.Hover;
+		const pausingOverlays = allOverlays.filter(overlay => !isMirrored(overlay.type));
+		this._mirroredOverlays = allOverlays.filter(overlay => isMirrored(overlay.type)).map(overlay => overlay.rect);
 
 		this.clearOverlayPauseMessage();
 
@@ -516,10 +525,48 @@ export class BrowserEditor extends EditorPane {
 			this._overlayVisible = hasOverlappingOverlay;
 			this.updateVisibility();
 		}
+		this.updateOverlayMirrors();
+	}
+
+	/**
+	 * Asks the main process to mirror the overlays over this page, clipped to the page (the rest
+	 * of each overlay shows normally). Nothing while the page isn't live on screen.
+	 */
+	private updateOverlayMirrors(): void {
+		if (!this._model) {
+			return;
+		}
+		const rects: IBrowserViewOverlayRect[] = [];
+		if (this.shouldShowView) {
+			const page = this._browserContainer.getBoundingClientRect();
+			for (const overlay of this._mirroredOverlays) {
+				const left = Math.max(page.left, overlay.left);
+				const top = Math.max(page.top, overlay.top);
+				const right = Math.min(page.right, overlay.left + overlay.width);
+				const bottom = Math.min(page.bottom, overlay.top + overlay.height);
+				if (right > left && bottom > top) {
+					rects.push({ x: Math.floor(left), y: Math.floor(top), width: Math.ceil(right - left), height: Math.ceil(bottom - top) });
+				}
+			}
+		}
+		const key = JSON.stringify(rects);
+		if (key === this._lastMirrorKey) {
+			return;
+		}
+		this._lastMirrorKey = key;
+		void this._model.setOverlayMirrors(this.group.windowId, rects, getZoomFactor(this.window));
+	}
+
+	private clearOverlayMirrors(): void {
+		this._mirroredOverlays = [];
+		if (this._model && this._lastMirrorKey !== '[]') {
+			this._lastMirrorKey = '[]';
+			void this._model.setOverlayMirrors(this.group.windowId, [], getZoomFactor(this.window));
+		}
 	}
 
 	private clearOverlayPauseMessage(): void {
-		// No pause-overlay message is shown today — notifications no longer pause the
+		// No pause-overlay message is shown today - notifications no longer pause the
 		// browser, and the other overlays (menus, hovers, dialogs) hide the view without
 		// any explanatory text.
 		this._overlayPauseContainer.classList.remove('show-message');
@@ -836,35 +883,27 @@ export class BrowserEditor extends EditorPane {
 	 */
 	layoutBrowserContainer(): void {
 		if (this._model) {
-			this.checkOverlays();
-
 			const containerRect = this._browserContainer.getBoundingClientRect();
-
-			// Clip the WebContentsView so it ends above any overlapping notification
-			// toast(s). The placeholder screenshot covers the full container, so the
-			// strip exposed below the clip shows the screenshot, and the toast HTML
-			// (z-index 1000) renders on top of it instead of being hidden behind the
-			// native view.
-			let clippedBottom = containerRect.bottom;
-			for (const overlay of this._notificationOverlays) {
-				if (overlay.rect.top < clippedBottom) {
-					clippedBottom = overlay.rect.top;
-				}
-			}
-			const clippedHeight = Math.max(0, clippedBottom - containerRect.top);
+			this.checkOverlays();
 
 			void this._model.layout({
 				windowId: this.group.windowId,
 				x: containerRect.left,
 				y: containerRect.top,
 				width: containerRect.width,
-				height: clippedHeight,
+				height: containerRect.height,
 				zoomFactor: getZoomFactor(this.window)
 			});
 		}
 	}
 
+	override dispose(): void {
+		this.clearOverlayMirrors();
+		super.dispose();
+	}
+
 	override clearInput(): void {
+		this.clearOverlayMirrors();
 		this._inputDisposables.clear();
 
 		// Cancel any active element selection

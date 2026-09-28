@@ -16,6 +16,14 @@ export interface IBrowserViewBounds {
 	zoomFactor: number;
 }
 
+/** A rectangle in a window's CSS pixels. */
+export interface IBrowserViewOverlayRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 export interface IBrowserViewCaptureScreenshotOptions {
 	quality?: number;
 	rect?: { x: number; y: number; width: number; height: number };
@@ -165,6 +173,16 @@ export interface IBrowserViewService {
 	 * @param visible Whether the view should be visible
 	 */
 	setVisible(id: string, visible: boolean): Promise<void>;
+
+	/**
+	 * Show these parts of the window's workbench (notifications, hovers) on top of its browser
+	 * views, which otherwise cover them, while the pages stay live.
+	 * @param windowId The window the rectangles are in
+	 * @param owner Who is asking (a browser view id); each owner's rectangles replace its previous ones
+	 * @param rects Rectangles in the window's CSS pixels; empty to clear
+	 * @param zoomFactor The window's zoom factor
+	 */
+	setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void>;
 
 	/**
 	 * Navigate the browser view to a URL
