@@ -165,7 +165,11 @@
 	},
 	"trustedExtensionAuthAccess": {
 		"github": [
-			"GitHub.copilot-chat"
+			"GitHub.copilot-chat",
+			"vscode.git",
+			"vscode.github",
+			"eamodio.gitlens",
+			"github.vscode-pull-request-github"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"

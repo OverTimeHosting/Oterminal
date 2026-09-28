@@ -9,6 +9,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -19,7 +20,7 @@ import { IOthcloudAccountService, OthcloudAccountService } from '../common/othcl
 import { OthcloudAccountUrlHandler } from './othcloudAccountUrlHandler.js';
 import { OthcloudEmbeddedSession } from './othcloudEmbeddedSession.js';
 import { OthcloudAccountMenuContribution } from './othcloudAccountMenu.js';
-import { OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
+import { CONNECT_GITHUB_COMMAND_ID, OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
 import { registerOthcloudAccountSidebar } from './othcloudAccountSidebar.js';
 import './othcloudDevEnvironments.js';
 import { OthcloudTerminalProfilesContribution } from './othcloudTerminalProfiles.js';
@@ -137,7 +138,7 @@ registerAction2(class LinkGithubAction extends Action2 {
 	constructor() {
 		super({
 			id: 'othcloud.github.link',
-			title: localize2('othcloud.github.linkAction', 'Link GitHub on OTHCloud'),
+			title: localize2('othcloud.github.connectGithub', 'Connect GitHub'),
 			category: localize2('othcloud.account.category', 'OTHCloud'),
 			icon: Codicon.github,
 			f1: true,
@@ -145,19 +146,10 @@ registerAction2(class LinkGithubAction extends Action2 {
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		// Opens the website's git settings page in the embedded browser tab.
-		// The user finishes connecting GitHub there; the desktop auth
-		// provider picks up the new connection on next refresh.
-		const editorService = accessor.get(IEditorService);
-		const editorGroupsService = accessor.get(IEditorGroupsService);
-		const targetGroup = editorGroupsService.activeGroup;
-		await editorService.openEditor(
-			{ resource: BrowserViewUri.forUrl(getOthcloudBaseUrl() + '/dashboard/settings/git/github'), options: { pinned: true } },
-			targetGroup.id,
-		);
-		if (!targetGroup.isLocked) {
-			targetGroup.lock(true);
-		}
+		// Opens the website page that connects the user's GitHub account in the
+		// integrated browser; the GitHub auth provider waits for it to finish and
+		// hands the new token to every GitHub consumer.
+		await accessor.get(ICommandService).executeCommand(CONNECT_GITHUB_COMMAND_ID);
 	}
 });
 

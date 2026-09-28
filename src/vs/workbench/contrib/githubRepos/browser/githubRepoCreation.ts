@@ -6,11 +6,12 @@
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 
 // The `github` auth provider is owned by OthcloudGithubAuthProvider, which hands
-// out a short-lived GitHub App **installation token** proxied from othcloud.xyz.
-// Repo creation therefore goes straight to the GitHub REST API with that token -
-// no othcloud.xyz endpoint needed. Note an installation token can create repos
-// under an org (`POST /orgs/{org}/repos`, app needs Administration:write) but not
-// under a personal user account, so resolving and showing the owner matters.
+// out the user's own GitHub token from othcloud.xyz, or failing that a short-lived
+// GitHub App **installation token**. Repo creation therefore goes straight to the
+// GitHub REST API with that token - no othcloud.xyz endpoint needed. Note an
+// installation token can create repos under an org (`POST /orgs/{org}/repos`, app
+// needs Administration:write) but not under a personal user account, so resolving
+// and showing the owner matters.
 const GITHUB_API = 'https://api.github.com';
 const OTHCLOUD_GITHUB_PROVIDER_ID = 'github';
 
@@ -57,9 +58,9 @@ export class GithubApiError extends Error {
 /**
  * Resolves the GitHub token from the OTHCloud account and nothing else.
  *
- * GitHub access is a property of being signed in to OTHCloud - the website owns
- * the GitHub App installation and hands us a short-lived installation token - so
- * there is deliberately no second GitHub login to perform here. Returns undefined
+ * GitHub access is a property of being signed in to OTHCloud - the website hands
+ * us the user's GitHub token, or an installation token of their organization's
+ * GitHub App - so there is deliberately no second GitHub login to perform here. Returns undefined
  * when the user is signed out of OTHCloud or has not linked GitHub there.
  */
 export async function resolveGithubToken(authService: IAuthenticationService): Promise<string | undefined> {
@@ -73,12 +74,24 @@ export async function resolveGithubToken(authService: IAuthenticationService): P
 }
 
 /**
- * Figures out which GitHub account the installation token belongs to (e.g. the
- * `OverTimeHosting` org vs a personal account). Uses the installation's
+ * Figures out which GitHub account the token belongs to: the user for a token of
+ * their own GitHub account, else the account the installation token's app is
+ * installed on (e.g. the `OverTimeHosting` org vs a personal account), from its
  * repositories since installation tokens can't hit `/user`. Returns undefined
  * when it can't be determined (e.g. a brand-new installation with no repos).
  */
 export async function resolveGithubOwner(token: string): Promise<IGithubOwner | undefined> {
+	try {
+		const user = await fetch(`${GITHUB_API}/user`, { headers: githubHeaders(token) });
+		if (user.ok) {
+			const data = await user.json() as { login?: string };
+			if (data.login) {
+				return { login: data.login, type: 'User' };
+			}
+		}
+	} catch {
+		// network / parse error - try the installation
+	}
 	try {
 		const res = await fetch(`${GITHUB_API}/installation/repositories?per_page=1`, { headers: githubHeaders(token) });
 		if (!res.ok) {

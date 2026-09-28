@@ -65,7 +65,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(uriHandler);
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
-	context.subscriptions.push(new GitHubAuthenticationProvider(context, uriHandler));
+	// OTerminal: the github.com provider is the workbench's own, backed by the user's OTHCloud
+	// account (othcloudGithubAuthProvider.ts). Registering a second one here replaced it, which
+	// disposed it, and its disposal then unregistered `github` altogether: every GitHub sign-in
+	// (clone, the GitHub Repos view, pull requests) waited 30s for a provider and failed. Only
+	// GitHub Enterprise is served from this extension.
 
 	let before = vscode.workspace.getConfiguration().get<string>('github-enterprise.uri');
 	let githubEnterpriseAuthProvider = initGHES(context, uriHandler);

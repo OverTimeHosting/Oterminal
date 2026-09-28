@@ -35,8 +35,17 @@ export async function getSession(): Promise<AuthenticationSession> {
 }
 
 let _octokit: Promise<Octokit> | undefined;
+let _octokitToken: string | undefined;
 
-export function getOctokit(): Promise<Octokit> {
+export async function getOctokit(): Promise<Octokit> {
+	// OTerminal: the GitHub token (from the user's OTHCloud account) is replaced about hourly.
+	// A client kept for the old one answers 401 until reload, so build a new one when it changes.
+	const token = (await getSession()).accessToken;
+	if (_octokit && token !== _octokitToken) {
+		_octokit = undefined;
+	}
+	_octokitToken = token;
+
 	if (!_octokit) {
 		_octokit = getSession().then(async session => {
 			const token = session.accessToken;

@@ -16,8 +16,17 @@ class GitHubCredentialProvider implements CredentialsProvider {
 			return;
 		}
 
-		const session = await getSession();
-		return { username: session.account.id, password: session.accessToken };
+		let session;
+		try {
+			session = await getSession();
+		} catch {
+			// No GitHub session (declined, or OTHCloud has none): let git carry on without
+			// one, e.g. for a public repository, rather than failing the operation here
+			return undefined;
+		}
+		// Installation tokens (ghs_) only authenticate as this username; any works for others
+		const username = session.accessToken.startsWith('ghs_') ? 'x-access-token' : session.account.label;
+		return { username, password: session.accessToken };
 	}
 }
 

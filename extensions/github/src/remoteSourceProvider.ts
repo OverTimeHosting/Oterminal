@@ -67,10 +67,22 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	private async getUserRemoteSources(octokit: Octokit, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
-			const user = await octokit.users.getAuthenticated({});
-			const username = user.data.login;
-			const res = await octokit.repos.listForAuthenticatedUser({ username, sort: 'updated', per_page: 100 });
-			this.userReposCache = res.data.map(asRemoteSource);
+			try {
+				const user = await octokit.users.getAuthenticated({});
+				const username = user.data.login;
+				const res = await octokit.repos.listForAuthenticatedUser({ username, sort: 'updated', per_page: 100 });
+				this.userReposCache = res.data.map(asRemoteSource);
+			} catch (err) {
+				// OTerminal signs in to GitHub through the user's OTHCloud account, whose token is
+				// a GitHub App installation token: it has no user, so these answer 403. List the
+				// repositories the installation can see instead.
+				if ((err as { status?: number })?.status !== 403) {
+					throw err;
+				}
+				const res = await octokit.request('GET /installation/repositories', { per_page: 100 });
+				const repositories = (res.data as { repositories: Parameters<typeof asRemoteSource>[0][] }).repositories;
+				this.userReposCache = repositories.map(asRemoteSource);
+			}
 		}
 
 		return this.userReposCache;

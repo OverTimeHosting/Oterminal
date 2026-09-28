@@ -13,7 +13,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
@@ -40,6 +40,10 @@ import { WorkbenchList } from '../../../../platform/list/browser/listService.js'
 import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IOthcloudAccountService, OthcloudIsSignedInContext } from '../../othcloudAccount/common/othcloudAccountService.js';
 import { IGithubOwner, ICreatedRepo, IRemoteRepo, GithubApiError, resolveGithubToken, resolveGithubOwner, createGithubRepo, listGithubRepos } from './githubRepoCreation.js';
+import { cloneIntoCloneFolder, GithubCloneFolderContribution, ICloneServices } from './githubCloneFolder.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceEditingService } from '../../../services/workspaces/common/workspaceEditing.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 export interface IRepoEntry {
 	id: string;
@@ -135,7 +139,17 @@ async function collectGitRepos(fileService: IFileService, dir: URI, depth: numbe
 async function rescanRoots(storage: IStorageService, fileService: IFileService): Promise<boolean> {
 	const roots = loadScanRoots(storage);
 	const all = loadEntries(storage);
-	const preserved = all.filter(e => e.source !== 'scan');
+	// A cloned repository whose folder has since been deleted is dropped too
+	const preserved: IRepoEntry[] = [];
+	for (const entry of all) {
+		if (entry.source === 'scan') {
+			continue;
+		}
+		if (entry.source === 'github' && !(await fileService.exists(URI.file(entry.path)))) {
+			continue;
+		}
+		preserved.push(entry);
+	}
 	const prevScanIds = new Map(all.filter(e => e.source === 'scan').map(e => [e.path, e.id] as const));
 	const seen = new Set(preserved.map(e => e.path));
 
@@ -437,6 +451,7 @@ class GithubReposDefaultViewContribution implements IWorkbenchContribution {
 	}
 }
 registerWorkbenchContribution2(GithubReposDefaultViewContribution.ID, GithubReposDefaultViewContribution, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(GithubCloneFolderContribution.ID, GithubCloneFolderContribution, WorkbenchPhase.AfterRestored);
 
 // Helpers
 
@@ -458,6 +473,15 @@ async function pickFolder(dialog: IFileDialogService, message: string): Promise<
 		title: message,
 	});
 	return picked?.[0];
+}
+
+/** Adds a freshly cloned repository to the list, at the path it was cloned to. */
+function recordClone(storage: IStorageService, repo: { name: string; htmlUrl: string }, cloned: URI): void {
+	const entries = loadEntries(storage);
+	if (!entries.some(e => e.path === cloned.fsPath)) {
+		entries.push({ id: uuid(), name: basename(cloned.fsPath), path: cloned.fsPath, url: repo.htmlUrl, source: 'github' });
+		saveEntries(storage, entries);
+	}
 }
 
 async function isGitRepo(fileService: IFileService, folder: URI): Promise<boolean> {
@@ -497,7 +521,15 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 		const progressService = accessor.get(IProgressService);
 		const commandService = accessor.get(ICommandService);
 		// Resolve eagerly: the accessor is dead after the first await below.
-		const fileDialogService = accessor.get(IFileDialogService);
+		const cloneServices: ICloneServices = {
+			commandService,
+			configurationService: accessor.get(IConfigurationService),
+			pathService: accessor.get(IPathService),
+			fileService: accessor.get(IFileService),
+			dialogService: accessor.get(IDialogService),
+			workspaceContextService: accessor.get(IWorkspaceContextService),
+			workspaceEditingService: accessor.get(IWorkspaceEditingService),
+		};
 
 		if (!accountService.isSignedIn()) {
 			notificationService.prompt(
@@ -508,13 +540,13 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 			return;
 		}
 
-		// Pull the GitHub installation token from the `github` auth session.
+		// Pull the GitHub token from the `github` auth session.
 		const token = await resolveGithubToken(authService);
 		if (!token) {
 			notificationService.prompt(
 				Severity.Warning,
-				localize('githubRepos.notLinked', "GitHub isn't linked to your OTHCloud account yet. Connect it to create repositories."),
-				[{ label: localize('githubRepos.linkAction', "Link GitHub on OTHCloud"), run: () => void commandService.executeCommand('othcloud.github.link') }],
+				localize('githubRepos.notLinked', "Connect your GitHub account to OTHCloud to create repositories."),
+				[{ label: localize('githubRepos.connectAction', "Connect GitHub"), run: () => void commandService.executeCommand('othcloud.github.link') }],
 			);
 			return;
 		}
@@ -581,28 +613,14 @@ registerAction2(class CreateGithubRepoAction extends Action2 {
 			return;
 		}
 
-		// Let the user pick where to clone it locally.
-		const parent = await pickFolder(fileDialogService, localize('githubRepos.pickCloneParent', "Choose a folder to clone \"{0}\" into", repo.name));
-		if (!parent) {
-			// Repo was created on GitHub; just record it and tell the user.
-			notificationService.info(localize('githubRepos.createdNoClone', "Created {0} on GitHub. Clone it later from {1}.", repo.fullName, repo.htmlUrl));
-			return;
-		}
-
-		const destPath = URI.joinPath(parent, repo.name).fsPath;
-
-		// Record it in the list now, using the path it will live at after clone.
-		const entries = loadEntries(storage);
-		if (!entries.some(e => e.path === destPath)) {
-			entries.push({ id: uuid(), name: repo.name, path: destPath, url: repo.htmlUrl, source: 'github' });
-			saveEntries(storage, entries);
-		}
-
-		// Clone via the git extension. Credentials flow through the `github`
-		// auth provider (OthcloudGithubAuthProvider), and it prompts to open
-		// the freshly cloned folder once done.
+		// Clone it into the GitHub folder through the git extension. Credentials flow through
+		// the `github` auth provider (OthcloudGithubAuthProvider), and it offers to open the
+		// freshly cloned folder once done.
 		try {
-			await commandService.executeCommand('git.clone', repo.cloneUrl, parent.fsPath);
+			const cloned = await cloneIntoCloneFolder(repo.cloneUrl, cloneServices, repository => recordClone(storage, repo, repository));
+			if (!cloned) {
+				notificationService.info(localize('githubRepos.createdNoClone', "Created {0} on GitHub. Clone it later from {1}.", repo.fullName, repo.htmlUrl));
+			}
 		} catch (err) {
 			notificationService.error(localize('githubRepos.cloneFailed', "Repository created, but cloning failed: {0}", String((err as Error).message ?? err)));
 		}
@@ -634,7 +652,15 @@ registerAction2(class CloneGithubRepoAction extends Action2 {
 		const progressService = accessor.get(IProgressService);
 		const storage = accessor.get(IStorageService);
 		// Resolve eagerly: the accessor is dead after the first await below.
-		const fileDialogService = accessor.get(IFileDialogService);
+		const cloneServices: ICloneServices = {
+			commandService,
+			configurationService: accessor.get(IConfigurationService),
+			pathService: accessor.get(IPathService),
+			fileService: accessor.get(IFileService),
+			dialogService: accessor.get(IDialogService),
+			workspaceContextService: accessor.get(IWorkspaceContextService),
+			workspaceEditingService: accessor.get(IWorkspaceEditingService),
+		};
 
 		const token = await resolveGithubToken(authService);
 		if (!token) {
@@ -684,24 +710,12 @@ registerAction2(class CloneGithubRepoAction extends Action2 {
 		}
 
 		const repo = picked.repo;
-		const parent = await pickFolder(fileDialogService, localize('githubRepos.pickCloneParent', "Choose a folder to clone \"{0}\" into", repo.name));
-		if (!parent) {
-			return;
-		}
 
-		// Record it now against the path it will occupy, matching what the
-		// create-then-clone flow does, so the list reflects it either way.
-		const destPath = URI.joinPath(parent, repo.name).fsPath;
-		const entries = loadEntries(storage);
-		if (!entries.some(e => e.path === destPath)) {
-			entries.push({ id: uuid(), name: repo.name, path: destPath, url: repo.htmlUrl, source: 'github' });
-			saveEntries(storage, entries);
-		}
-
-		// Clone via the git extension; it handles credentials through the auth
-		// providers and offers to open the folder when it finishes.
+		// Into the GitHub folder through the git extension; it handles credentials through the
+		// auth providers, reports failures itself, and offers to open the folder when done.
+		// Recorded afterwards, at the path it really went to, and only if it did.
 		try {
-			await commandService.executeCommand('git.clone', repo.cloneUrl, parent.fsPath);
+			await cloneIntoCloneFolder(repo.cloneUrl, cloneServices, repository => recordClone(storage, repo, repository));
 		} catch (err) {
 			notificationService.error(localize('githubRepos.cloneFailedPlain', "Cloning failed: {0}", String((err as Error).message ?? err)));
 		}
