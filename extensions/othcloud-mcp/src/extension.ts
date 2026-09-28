@@ -9,7 +9,8 @@ import * as vscode from 'vscode';
 import { RunningServer, startServer } from './server';
 import { getOrCreateToken, rotateToken } from './secret';
 import { buildTools } from './tools';
-import { ProjectConfigMode, syncProjectConfigs, TOKEN_ENV, URL_ENV } from './projectConfig';
+import * as os from 'os';
+import { HEADERS_ENV, ProjectConfigMode, SHARED_HEADERS_FILE, syncProjectConfigs, URL_ENV } from './projectConfig';
 
 const EXT_NAME = 'othcloud-mcp';
 const EXT_VERSION = '1.0.0';
@@ -133,8 +134,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 			statusBar.text = `$(plug) MCP :${state.running.port}`;
 			statusBar.tooltip = `OTHCloud MCP server listening on ${state.running.address}/sse`;
+			const headersFile = await writeHeaders(context.globalStorageUri.fsPath, state.token, state.running.port === configuredPort, output);
 			context.environmentVariableCollection.replace(URL_ENV, `${state.running.address}/sse`);
-			context.environmentVariableCollection.replace(TOKEN_ENV, state.token);
+			if (headersFile) {
+				context.environmentVariableCollection.replace(HEADERS_ENV, headersFile);
+			}
 			void syncProjects();
 		} else {
 			const msg = lastErr?.message ?? 'unknown error';
@@ -242,6 +246,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push({ dispose: () => { void stop(); } });
 
 	await start();
+}
+
+/**
+ * Writes this window's MCP headers where the project `.mcp.json` entry's `headersHelper`
+ * reads them (see projectConfig.ts), readable by the user only. The window holding the
+ * default port also writes the shared file that terminals outside OTerminal fall back to.
+ * Returns this window's file.
+ */
+async function writeHeaders(storageDir: string, token: string, ownsDefaultPort: boolean, output: vscode.OutputChannel): Promise<string | undefined> {
+	const content = JSON.stringify({ Authorization: `Bearer ${token}` }) + '\n';
+	const write = async (file: string) => {
+		await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+		await fs.writeFile(file, content, { mode: 0o600 });
+		await fs.chmod(file, 0o600); // writeFile only applies the mode when it creates the file
+	};
+	try {
+		const own = path.join(storageDir, 'mcp-headers.json');
+		await write(own);
+		if (ownsDefaultPort) {
+			await write(path.join(os.homedir(), SHARED_HEADERS_FILE));
+		}
+		return own;
+	} catch (err) {
+		output.appendLine(`[mcp] couldn't write the MCP headers file: ${err instanceof Error ? err.message : String(err)}`);
+		return undefined;
+	}
 }
 
 export function deactivate(): Thenable<void> | undefined {

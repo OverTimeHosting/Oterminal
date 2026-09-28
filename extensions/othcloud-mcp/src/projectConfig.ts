@@ -9,20 +9,31 @@ import * as vscode from 'vscode';
 
 /** Environment variables every OTerminal terminal gets, read by the project `.mcp.json` entry. */
 export const URL_ENV = 'OTERMINAL_MCP_URL';
-export const TOKEN_ENV = 'OTERMINAL_MCP_TOKEN';
+/** Path of a file holding this window's `{"Authorization": "Bearer …"}` headers. */
+export const HEADERS_ENV = 'OTERMINAL_MCP_HEADERS';
+
+/**
+ * Where the window holding the default port also writes its headers, for Claude Code started
+ * outside OTerminal (which has no {@link HEADERS_ENV}). Relative to the home directory.
+ */
+export const SHARED_HEADERS_FILE = '.oterminal/mcp-headers.json';
 
 export type ProjectConfigMode = 'update' | 'create' | 'off';
 
 /**
- * The `.mcp.json` entry for this server. It names the environment variables instead of
- * holding the URL and token, so the file is right in every OTerminal window (each exports its
- * own server's address) and holds no secret, which makes it safe to commit.
+ * The `.mcp.json` entry for this server. It holds neither the address nor the token, so it is
+ * right in every terminal and safe to commit:
+ * - the URL comes from {@link URL_ENV} inside OTerminal (each window exports its own
+ *   server's), and is the default port elsewhere;
+ * - the token comes from a `headersHelper` that prints a private headers file: this window's
+ *   ({@link HEADERS_ENV}) inside OTerminal, the default port's ({@link SHARED_HEADERS_FILE})
+ *   elsewhere, e.g. Claude Code started in another terminal app. POSIX shells only.
  */
 export function projectServerEntry(defaultUrl: string) {
 	return {
 		type: 'sse',
 		url: `\${${URL_ENV}:-${defaultUrl}}`,
-		headers: { Authorization: `Bearer \${${TOKEN_ENV}}` },
+		headersHelper: `cat "\${${HEADERS_ENV}:-$HOME/${SHARED_HEADERS_FILE}}"`,
 	};
 }
 

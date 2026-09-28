@@ -5,7 +5,7 @@
 	"config.enabled": "Run the local MCP server on startup.",
 	"config.host": "Loopback address to bind to. Keep on 127.0.0.1 unless you understand the implications.",
 	"config.port": "TCP port for the MCP HTTP+SSE server, the same every time so client configs keep working. If another OTerminal window already has it, a window uses a free port instead and points its own terminals at it. 0 = sticky port: pick a free port the first time, then reuse it.",
-	"config.projectConfig": "Keep the \"oterminal\" server in each opened repository's .mcp.json (Claude Code's project MCP config) up to date. The entry reads OTERMINAL_MCP_URL and OTERMINAL_MCP_TOKEN, which every OTerminal terminal gets, so it holds no secret and is safe to commit.",
+	"config.projectConfig": "Keep the \"oterminal\" server in each opened repository's .mcp.json (Claude Code's project MCP config) up to date. The entry holds neither the address nor the token: inside OTerminal it uses the window's own server, elsewhere the default port with a token file in your home folder that only you can read. So it works from any terminal and is safe to commit.",
 	"config.projectConfig.update": "Update the entry in repositories whose .mcp.json already has it.",
 	"config.projectConfig.create": "Also add .mcp.json with the entry to git repositories that don't have one.",
 	"config.projectConfig.off": "Never touch .mcp.json.",
