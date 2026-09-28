@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { env } from '../../../../base/common/process.js';
+import product from '../../../../platform/product/common/product.js';
 import { IOthcloudUser } from '../common/othcloudAccountService.js';
 
 // Pairing contract is documented in PAIRING.md at the repo root.
-// Dev builds (`yarn watch` / running out of sources, where `VSCODE_DEV` is set)
+// Running out of sources (`VSCODE_DEV` set and no build commit, see isRunningFromSources)
 // hit the local Next.js dev server; packaged builds talk to production.
 const OTHCLOUD_DEV_BASE_URL = 'http://localhost:3001';
 const OTHCLOUD_PROD_BASE_URL = 'https://othcloud.xyz';
@@ -26,10 +27,21 @@ const OTHCLOUD_PROD_BASE_URL = 'https://othcloud.xyz';
  * resolves them to whatever host the customer actually reached. See
  * {@link setOthcloudBaseUrl}.
  */
-let othcloudBaseUrl = env['VSCODE_DEV']
-	// Dev builds only: point at another local panel (or a mock) without editing code.
+let othcloudBaseUrl = isRunningFromSources()
+	// Point at another local panel (or a mock) without editing code.
 	? (env['OTHCLOUD_DEV_BASE_URL'] || OTHCLOUD_DEV_BASE_URL)
 	: OTHCLOUD_PROD_BASE_URL;
+
+/**
+ * Running out of sources, as opposed to an installed release. A release always talks to
+ * othcloud.xyz: its product.json carries the commit it was built from, and that is checked
+ * first because `VSCODE_DEV` alone is not proof. It is inherited like any environment
+ * variable, e.g. by a release started from a dev build's terminal, which then signed in
+ * against localhost.
+ */
+function isRunningFromSources(): boolean {
+	return !product.commit && !!env['VSCODE_DEV'];
+}
 
 /**
  * Point the client at a different othcloud.xyz.
