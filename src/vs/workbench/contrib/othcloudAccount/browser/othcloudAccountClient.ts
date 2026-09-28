@@ -130,51 +130,6 @@ export interface IOthcloudDevEnvConnection {
 	readonly folder: string;
 }
 
-/** A game server as `/api/desktop/game-servers/<id>/details` reports it. */
-export interface IOthcloudGameServerDetails {
-	readonly name: string;
-	readonly gameType: string | null;
-	readonly version: string | null;
-	readonly address: string | null;
-	readonly runtime: 'otwings' | 'pterodactyl' | 'docker';
-	/** `running`, `starting`, `stopping`, `offline` or `error`. */
-	readonly state: string;
-	readonly suspended: { readonly since: string; readonly reason: string | null } | null;
-	readonly limits: { readonly memory: string | null; readonly cpu: string | null };
-	readonly resources: {
-		readonly cpuAbsolute: number;
-		readonly memoryBytes: number;
-		readonly memoryLimitBytes: number;
-		readonly diskBytes: number;
-		readonly networkRxBytes: number;
-		readonly networkTxBytes: number;
-		/** Milliseconds. */
-		readonly uptime: number;
-	} | null;
-	readonly players: { readonly online: number; readonly max: number; readonly names: readonly string[] } | null;
-	readonly canManageFiles: boolean;
-}
-
-export type OthcloudPowerSignal = 'start' | 'stop' | 'restart' | 'kill';
-
-/** An entry of a game server's file listing. */
-export interface IOthcloudGameFileEntry {
-	readonly name: string;
-	readonly directory: boolean;
-	readonly file: boolean;
-	readonly symlink: boolean;
-	readonly size: number;
-	readonly modified: string;
-}
-
-export type OthcloudGameFileOp =
-	| { op: 'list'; path: string }
-	| { op: 'read'; path: string }
-	| { op: 'write'; path: string; content: string }
-	| { op: 'mkdir'; root: string; name: string }
-	| { op: 'delete'; root: string; name: string }
-	| { op: 'rename'; root: string; from: string; to: string };
-
 export class OthcloudAccountApiError extends Error {
 	constructor(public readonly status: number, message: string) {
 		super(message);
@@ -273,26 +228,6 @@ export const OthcloudAccountClient = {
 
 	async stopDevEnvironment(token: string, applicationId: string): Promise<void> {
 		await requestJson<unknown>('POST', `/api/desktop/dev-environments/${encodeURIComponent(applicationId)}/stop`, token, {});
-	},
-
-	async gameServerDetails(token: string, composeId: string): Promise<IOthcloudGameServerDetails> {
-		return getJson<IOthcloudGameServerDetails>(`/api/desktop/game-servers/${encodeURIComponent(composeId)}/details`, token);
-	},
-
-	async gameServerPower(token: string, composeId: string, signal: OthcloudPowerSignal): Promise<void> {
-		await requestJson<unknown>('POST', `/api/desktop/game-servers/${encodeURIComponent(composeId)}/power`, token, { signal });
-	},
-
-	async gameServerConsole(token: string, composeId: string, tail: number): Promise<{ logs: string; found: boolean }> {
-		return getJson<{ logs: string; found: boolean }>(`/api/desktop/game-servers/${encodeURIComponent(composeId)}/console?tail=${tail}`, token);
-	},
-
-	async gameServerCommand(token: string, composeId: string, command: string): Promise<void> {
-		await requestJson<unknown>('POST', `/api/desktop/game-servers/${encodeURIComponent(composeId)}/command`, token, { command });
-	},
-
-	async gameServerFiles<T>(token: string, composeId: string, op: OthcloudGameFileOp): Promise<T> {
-		return requestJson<T>('POST', `/api/desktop/game-servers/${encodeURIComponent(composeId)}/files`, token, op);
 	},
 
 	/** 409 (`not_running`) unless the environment is running. */

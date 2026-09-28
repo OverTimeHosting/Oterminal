@@ -39,8 +39,6 @@ import {
 import { IOthcloudAccountService, IOthcloudUser } from '../common/othcloudAccountService.js';
 import { getOthcloudBaseUrl, IOthcloudDevEnvStatus, IOthcloudServiceRow, IOthcloudServices, OthcloudAccountApiError, OthcloudAccountClient } from './othcloudAccountClient.js';
 import { OPEN_REMOTE_COMMAND, START_COMMAND, STOP_COMMAND } from './othcloudDevEnvironments.js';
-import { OPEN_SERVICE_COMMAND } from './othcloudServiceEditor.contribution.js';
-import { OthcloudServiceKind } from './othcloudServiceInput.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
@@ -66,8 +64,6 @@ interface IFriendlyError {
 interface ISectionDef {
 	/** Dev environment rows get remote-editing actions instead of the link ones. */
 	readonly devEnvironments?: boolean;
-	/** Rows that open a native service tab when clicked. */
-	readonly serviceKind?: OthcloudServiceKind;
 	readonly label: string;
 	readonly ariaLabel: string;
 	/** Icon of the top-level rows (environments always use the server environment icon). */
@@ -160,9 +156,6 @@ function statusCategory(status: string): StatusCategory {
 	}
 	return 'unknown';
 }
-
-const isServiceKind = (value: string | undefined): value is OthcloudServiceKind =>
-	value === 'application' || value === 'gameServer';
 
 class OthcloudAccountSidebarView extends ViewPane {
 
@@ -493,7 +486,6 @@ class OthcloudAccountSidebarView extends ViewPane {
 			},
 			{
 				devEnvironments: true,
-				serviceKind: 'application',
 				label: localize('othcloud.account.devEnvironments', 'Dev Environments'),
 				ariaLabel: localize('othcloud.account.devEnvironmentsAria', 'OTHCloud dev environments'),
 				icon: Codicon.remote,
@@ -502,7 +494,6 @@ class OthcloudAccountSidebarView extends ViewPane {
 				emptyAction: { label: localize('othcloud.account.openDashboard', 'Open the OTHCloud dashboard'), path: '/dashboard' },
 			},
 			{
-				serviceKind: 'gameServer',
 				label: localize('othcloud.account.gameServers', 'Game Servers'),
 				ariaLabel: localize('othcloud.account.gameServersAria', 'OTHCloud game servers'),
 				icon: Codicon.game,
@@ -560,7 +551,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 		for (const row of def.rows) {
 			const children = row.children ?? [];
 			const expanded = children.length > 0 && this.expandedRows.has(row.id);
-			this.renderRow(tree, row, def.icon, 0, children.length > 0, expanded, undefined, def.devEnvironments, def.serviceKind);
+			this.renderRow(tree, row, def.icon, 0, children.length > 0, expanded, undefined, def.devEnvironments);
 			if (expanded) {
 				for (const child of children) {
 					this.renderRow(tree, child, Codicon.serverEnvironment, 1, false, false, row);
@@ -569,7 +560,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 		}
 	}
 
-	private renderRow(parent: HTMLElement, row: IOthcloudServiceRow, icon: ThemeIcon, depth: number, hasChildren: boolean, expanded: boolean, parentRow?: IOthcloudServiceRow, devEnvironment = false, serviceKind?: OthcloudServiceKind): void {
+	private renderRow(parent: HTMLElement, row: IOthcloudServiceRow, icon: ThemeIcon, depth: number, hasChildren: boolean, expanded: boolean, parentRow?: IOthcloudServiceRow, devEnvironment = false): void {
 		const el = append(parent, $('.othcloud-account-item'));
 		el.dataset.rowId = row.id;
 		if (parentRow) {
@@ -630,27 +621,20 @@ class OthcloudAccountSidebarView extends ViewPane {
 		if (devEnvironment) {
 			el.dataset.devEnvironment = 'true';
 		}
-		if (serviceKind) {
-			el.dataset.serviceKind = serviceKind;
-		}
 		el.onclick = () => {
 			el.focus();
-			// A service opens its own tab; a remote window stays on the row's
-			// button and in the menu, being too heavy for a single click.
-			if (serviceKind) {
-				void this.openServiceTab(serviceKind, row);
-			} else {
-				this.activateRow(row, hasChildren);
-			}
+			// Opens the service's OTHCloud page in an editor tab. A remote window
+			// stays on the row's button and in the menu, being too heavy for a click.
+			this.activateRow(row, hasChildren);
 		};
 		el.ondblclick = () => {
-			if (!serviceKind && hasChildren && row.url) {
+			if (hasChildren && row.url) {
 				void this.openInEditor(row.url);
 			}
 		};
 		el.oncontextmenu = e => {
 			e.preventDefault();
-			this.showRowMenu(row, { x: e.clientX, y: e.clientY }, devEnvironment, serviceKind);
+			this.showRowMenu(row, { x: e.clientX, y: e.clientY }, devEnvironment);
 		};
 		el.onfocus = () => {
 			for (const item of this.rowElements) {
@@ -718,9 +702,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 				break;
 			case 'Enter':
 			case ' ':
-				if (row && isServiceKind(current.dataset.serviceKind)) {
-					void this.openServiceTab(current.dataset.serviceKind, row);
-				} else if (row) {
+				if (row) {
 					this.activateRow(row, hasChildren);
 				}
 				break;
@@ -731,7 +713,7 @@ class OthcloudAccountSidebarView extends ViewPane {
 				}
 				if (row) {
 					const rect = current.getBoundingClientRect();
-					this.showRowMenu(row, { x: rect.left + 16, y: rect.bottom }, !!current.dataset.devEnvironment, isServiceKind(current.dataset.serviceKind) ? current.dataset.serviceKind : undefined);
+					this.showRowMenu(row, { x: rect.left + 16, y: rect.bottom }, !!current.dataset.devEnvironment);
 				}
 				break;
 			default:
@@ -754,11 +736,8 @@ class OthcloudAccountSidebarView extends ViewPane {
 		return undefined;
 	}
 
-	private showRowMenu(row: IOthcloudServiceRow, anchor: { x: number; y: number }, devEnvironment = false, serviceKind?: OthcloudServiceKind): void {
+	private showRowMenu(row: IOthcloudServiceRow, anchor: { x: number; y: number }, devEnvironment = false): void {
 		const actions: IAction[] = [];
-		if (serviceKind) {
-			actions.push(toAction({ id: 'othcloud.row.openService', label: localize('othcloud.account.openService', 'Open'), run: () => this.openServiceTab(serviceKind, row) }));
-		}
 		if (devEnvironment) {
 			const running = this.isDevEnvRunning(row.id);
 			actions.push(
@@ -844,10 +823,6 @@ class OthcloudAccountSidebarView extends ViewPane {
 			}
 		};
 		await Promise.all([worker(), worker(), worker(), worker()]);
-	}
-
-	private async openServiceTab(kind: OthcloudServiceKind, row: IOthcloudServiceRow): Promise<void> {
-		await this.commandService.executeCommand(OPEN_SERVICE_COMMAND, kind, row.id, row.name);
 	}
 
 	private async openDevEnvironment(row: IOthcloudServiceRow): Promise<void> {

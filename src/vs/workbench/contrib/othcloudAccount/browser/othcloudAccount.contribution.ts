@@ -22,7 +22,6 @@ import { OthcloudAccountMenuContribution } from './othcloudAccountMenu.js';
 import { OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
 import { registerOthcloudAccountSidebar } from './othcloudAccountSidebar.js';
 import './othcloudDevEnvironments.js';
-import './othcloudServiceEditor.contribution.js';
 import { OthcloudTerminalProfilesContribution } from './othcloudTerminalProfiles.js';
 import { getOthcloudBaseUrl } from './othcloudAccountClient.js';
 
