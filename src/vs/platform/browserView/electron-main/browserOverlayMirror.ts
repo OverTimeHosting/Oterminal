@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { BrowserWindow, WebContentsView } from 'electron';
+import { BrowserWindow, WebContents, webContents as allWebContents, WebContentsView } from 'electron';
 import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { IBrowserViewOverlayRect } from '../common/browserView.js';
 
@@ -64,6 +64,8 @@ export class BrowserOverlayMirror extends Disposable {
 	/** Requested rectangles per owner (one browser view each); drawn as their union list. */
 	private readonly requested = new Map<string, readonly IBrowserViewOverlayRect[]>();
 	private zoomFactor = 1;
+	/** What had keyboard focus when the mirrors last changed: it gets focus back from a mirror. */
+	private focusOwner: WebContents | undefined;
 
 	constructor(private readonly win: BrowserWindow) {
 		super();
@@ -102,6 +104,11 @@ export class BrowserOverlayMirror extends Disposable {
 			}
 		}
 
+		// Adding, loading and restacking native views can take keyboard focus on Windows, which
+		// left typing (copy, rename, ...) going nowhere while a toast or hover showed over a page.
+		// Whatever had focus keeps it.
+		const focused = allWebContents.getFocusedWebContents();
+
 		// Reuse views for the new rectangles, create or drop the difference
 		while (this.mirrors.length > wanted.length) {
 			this.destroyMirror(this.mirrors.pop()!);
@@ -122,11 +129,32 @@ export class BrowserOverlayMirror extends Disposable {
 			}
 		});
 
+		if (focused && !this.isMirror(focused)) {
+			this.focusOwner = focused;
+		}
+		const now = allWebContents.getFocusedWebContents();
+		if (now && this.isMirror(now)) {
+			this.restoreFocus();
+		}
+
 		if (this.mirrors.length) {
 			this.startCapturing();
 		} else {
 			this.stopCapturing();
 		}
+	}
+
+	/** Gives keyboard focus back to whatever had it before a mirror took it (else the workbench). */
+	private restoreFocus(): void {
+		const owner = this.focusOwner;
+		const target = owner && !owner.isDestroyed() ? owner : this.win.webContents;
+		if (!target.isDestroyed()) {
+			target.focus();
+		}
+	}
+
+	private isMirror(contents: WebContents): boolean {
+		return this.mirrors.some(mirror => mirror.view.webContents === contents);
 	}
 
 	private createMirror(): IMirror {
@@ -152,6 +180,13 @@ export class BrowserOverlayMirror extends Disposable {
 				}
 			}
 		});
+		// Mirrors only ever show pictures, so they never keep keyboard focus (loading one can take
+		// it after `update` returned)
+		view.webContents.on('focus', () => {
+			if (!this.win.isDestroyed()) {
+				this.restoreFocus();
+			}
+		});
 		view.webContents.on('did-finish-load', () => {
 			mirror.ready = true;
 			mirror.lastImage = undefined;
@@ -170,7 +205,7 @@ export class BrowserOverlayMirror extends Disposable {
 		if (!this.win.isDestroyed()) {
 			this.win.contentView.removeChildView(mirror.view);
 		}
-		if (!mirror.view.webContents.isDestroyed()) {
+		if (mirror.view.webContents && !mirror.view.webContents.isDestroyed()) {
 			mirror.view.webContents.close();
 		}
 	}
@@ -193,14 +228,15 @@ export class BrowserOverlayMirror extends Disposable {
 	}
 
 	private async capture(mirror: IMirror): Promise<void> {
-		if (!mirror.ready || this.win.isDestroyed() || mirror.view.webContents.isDestroyed()) {
+		if (!mirror.ready || this.win.isDestroyed() || !mirror.view.webContents || mirror.view.webContents.isDestroyed()) {
 			return;
 		}
 		const bounds = mirror.bounds;
 		// The workbench's own rendering: the browser views are separate layers above it, so the
 		// overlay's pixels are there even where a page covers them on screen.
-		const image = await this.win.webContents.capturePage(bounds);
-		if (mirror.bounds !== bounds || mirror.view.webContents.isDestroyed()) {
+		const image = await this.win.webContents.capturePage(bounds).catch(() => undefined);
+		// The mirror may have been dropped meanwhile, taking its web contents with it
+		if (!image || mirror.bounds !== bounds || !mirror.view.webContents || mirror.view.webContents.isDestroyed()) {
 			return; // moved meanwhile; the next capture has it
 		}
 		const url = image.toDataURL();
@@ -233,6 +269,7 @@ export class BrowserOverlayMirror extends Disposable {
 				break;
 			case 'down':
 				// Keep typing going to the workbench (e.g. Escape to close the center)
+				this.focusOwner = target;
 				target.focus();
 				target.sendInputEvent({ type: 'mouseDown', x, y, button, clickCount: input.clickCount ?? 1, modifiers });
 				break;

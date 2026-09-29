@@ -20,7 +20,7 @@ import { IOthcloudAccountService, OthcloudAccountService } from '../common/othcl
 import { OthcloudAccountUrlHandler } from './othcloudAccountUrlHandler.js';
 import { OthcloudEmbeddedSession } from './othcloudEmbeddedSession.js';
 import { OthcloudAccountMenuContribution } from './othcloudAccountMenu.js';
-import { CONNECT_GITHUB_COMMAND_ID, OthcloudGithubAuthProvider } from './othcloudGithubAuthProvider.js';
+import { CONNECT_GITHUB_COMMAND_ID, OthcloudGithubAuthProvider, SIGN_IN_GITHUB_COMMAND_ID, SWITCH_GITHUB_ACCOUNT_COMMAND_ID } from './othcloudGithubAuthProvider.js';
 import { registerOthcloudAccountSidebar } from './othcloudAccountSidebar.js';
 import './othcloudDevEnvironments.js';
 import { OthcloudTerminalProfilesContribution } from './othcloudTerminalProfiles.js';
@@ -150,6 +150,40 @@ registerAction2(class LinkGithubAction extends Action2 {
 		// integrated browser; the GitHub auth provider waits for it to finish and
 		// hands the new token to every GitHub consumer.
 		await accessor.get(ICommandService).executeCommand(CONNECT_GITHUB_COMMAND_ID);
+	}
+});
+
+registerAction2(class SwitchGithubAccountAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.github.switchAccount',
+			title: localize2('othcloud.github.switchAccount', 'Switch GitHub Account'),
+			category: localize2('othcloud.account.category', 'OTHCloud'),
+			icon: Codicon.github,
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Picks which of the user's GitHub accounts on OTHCloud every GitHub consumer uses
+		await accessor.get(ICommandService).executeCommand(SWITCH_GITHUB_ACCOUNT_COMMAND_ID);
+	}
+});
+
+registerAction2(class SignInGithubAction extends Action2 {
+	constructor() {
+		super({
+			id: 'othcloud.github.signIn',
+			title: localize2('othcloud.github.signInGithub', 'Sign in to GitHub'),
+			category: localize2('othcloud.account.category', 'OTHCloud'),
+			icon: Codicon.github,
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Any GitHub account, saved on OTHCloud so projects can deploy from it too
+		await accessor.get(ICommandService).executeCommand(SIGN_IN_GITHUB_COMMAND_ID);
 	}
 });
 

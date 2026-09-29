@@ -9,6 +9,12 @@ import { URI } from '../../../base/common/uri.js';
 
 export interface IBrowserViewBounds {
 	windowId: number;
+	/**
+	 * OTerminal: the id of the workbench window whose renderer sends these bounds. `windowId` is
+	 * either that window or one of its auxiliary windows, whose ids come from a different counter
+	 * (web contents ids) and can equal another workbench window's id; this tells them apart.
+	 */
+	mainWindowId?: number;
 	x: number;
 	y: number;
 	width: number;
@@ -181,8 +187,9 @@ export interface IBrowserViewService {
 	 * @param owner Who is asking (a browser view id); each owner's rectangles replace its previous ones
 	 * @param rects Rectangles in the window's CSS pixels; empty to clear
 	 * @param zoomFactor The window's zoom factor
+	 * @param mainWindowId The workbench window whose renderer asks (see {@link IBrowserViewBounds.mainWindowId})
 	 */
-	setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void>;
+	setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number, mainWindowId?: number): Promise<void>;
 
 	/**
 	 * Navigate the browser view to a URL

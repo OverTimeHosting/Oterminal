@@ -10,6 +10,11 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { URI } from '../../../../base/common/uri.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import {
@@ -25,8 +30,8 @@ import { getOthcloudBaseUrl, OthcloudAccountApiError } from './othcloudAccountCl
 // Registered as the canonical `github` provider id so every GitHub-using surface
 // in the workbench - git, GitLens, the GitHub Pull Requests extension, Settings
 // Sync - silently uses the GitHub token OTHCloud hands out instead of prompting
-// for a separate GitHub sign-in. There is deliberately only one account to sign in to:
-// OTHCloud. The built-in `vscode.github-authentication` extension's own
+// for a separate GitHub sign-in. Which of the user's GitHub accounts on OTHCloud that is
+// can be switched (Switch GitHub Account), and more can be added from OTerminal. The built-in `vscode.github-authentication` extension's own
 // `contributes.authentication` registrations are cleared in its package.json so we
 // own this slot uncontested.
 export const OTHCLOUD_GITHUB_PROVIDER_ID = 'github';
@@ -44,7 +49,39 @@ const CONNECT_WAIT_MS = 10 * 60_000;
 /** Set by "Don't Show Again" on the offer to connect GitHub. */
 const CONNECT_OFFER_DISMISSED_KEY = 'othcloud.github.connectOfferDismissed';
 
+/** Picks which of the user's GitHub accounts on OTHCloud OTerminal uses, or adds one. */
+export const SWITCH_GITHUB_ACCOUNT_COMMAND_ID = '_othcloud.github.switchAccount';
+/** Signs in to a GitHub account in OTerminal and saves it on OTHCloud. */
+export const SIGN_IN_GITHUB_COMMAND_ID = '_othcloud.github.signIn';
+/** The chosen account, `{ user, account }`: only applies while that OTHCloud user is signed in. */
+const SELECTED_ACCOUNT_KEY = 'othcloud.github.selectedAccount';
+/** Where to create a token for "Sign in to GitHub": the scopes OTHCloud needs to clone, push and deploy. */
+const NEW_TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=repo,workflow,read:org&description=OTerminal';
+
+/** One of the user's GitHub accounts on OTHCloud, as `/api/desktop/github-accounts` lists it. */
+interface IGithubAccount {
+	/** `user:<id>` for a linked GitHub account, `app:<id>` for an organization's git provider. */
+	id: string;
+	kind: 'user' | 'installation';
+	label: string;
+	login?: string;
+	githubId: string;
+	avatarUrl?: string;
+	/** Whether its token can push (a user token with repository access). */
+	canPush: boolean;
+	/** Whether OTHCloud can deploy projects from it. */
+	deployable: boolean;
+}
+
+interface IGithubAccountsResponse {
+	accounts: IGithubAccount[];
+	connectPath?: string;
+	connectAvailable?: boolean;
+}
+
 interface IGithubTokenResponse {
+	/** Which of `/api/desktop/github-accounts` this token belongs to. Missing from older servers. */
+	accountId?: string;
 	/**
 	 * `user`: the user's own GitHub account, reaching every repository they can.
 	 * `installation`: their organization's GitHub App, reaching only the repositories
@@ -101,10 +138,14 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		@INotificationService private readonly notificationService: INotificationService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IStorageService private readonly storageService: IStorageService,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
+		@IOpenerService private readonly openerService: IOpenerService,
 	) {
 		super();
 
 		this._register(CommandsRegistry.registerCommand(CONNECT_GITHUB_COMMAND_ID, () => this.connect()));
+		this._register(CommandsRegistry.registerCommand(SWITCH_GITHUB_ACCOUNT_COMMAND_ID, () => this.switchAccount()));
+		this._register(CommandsRegistry.registerCommand(SIGN_IN_GITHUB_COMMAND_ID, () => this.signInWithToken()));
 		this._register({ dispose: () => this.connectWait?.cancel() });
 
 		// `registerDeclaredAuthenticationProvider` throws if `github` is already
@@ -222,9 +263,22 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 
 		let response: IGithubTokenResponse;
 		try {
-			const result = await this.requestToken(token);
+			let result: Awaited<ReturnType<OthcloudGithubAuthProvider['requestToken']>> | undefined;
+			const selected = this.getSelectedAccount();
+			if (selected) {
+				// A failure (e.g. GitHub unreachable) keeps the pick for next time
+				result = await this.requestToken(token, selected).catch(() => undefined);
+				if (result && !result.connected) {
+					// Gone from OTHCloud (or expired): back to the server's own choice
+					this.setSelectedAccount(undefined);
+				}
+				if (!result?.connected) {
+					result = undefined;
+				}
+			}
+			result ??= await this.requestToken(token);
 			if (!result.connected) {
-				this.offerToConnect(result.connectPath, false);
+				void this.offerToConnect(result.connectPath, false);
 				return undefined;
 			}
 			response = result.response;
@@ -240,17 +294,24 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 
 		const session = this.adopt(response);
 		if (response.needsConnect) {
-			this.offerToConnect(response.connectPath, true);
+			void this.offerToConnect(response.connectPath, true);
 		}
 		return session;
 	}
 
-	/** The server's GitHub token for the signed-in user, or that there is none. */
-	private async requestToken(token: string): Promise<{ connected: true; response: IGithubTokenResponse } | { connected: false; connectPath?: string }> {
-		const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-token`, {
+	/**
+	 * The server's GitHub token for the signed-in user, or that there is none. `accountId`
+	 * asks for one of their accounts in particular (see `/api/desktop/github-accounts`).
+	 */
+	private async requestToken(token: string, accountId?: string): Promise<{ connected: true; response: IGithubTokenResponse } | { connected: false; connectPath?: string }> {
+		const query = accountId ? `?account=${encodeURIComponent(accountId)}` : '';
+		const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-token${query}`, {
 			method: 'GET',
 			headers: { 'Authorization': `Bearer ${token}` },
 		});
+		if (accountId && (res.status === 404 || res.status === 409)) {
+			return { connected: false };
+		}
 		if (res.status === 404) {
 			const body = await res.json().catch(() => undefined) as { connectPath?: string } | undefined;
 			return { connected: false, connectPath: body?.connectPath };
@@ -267,7 +328,7 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		const previous = this.cached?.session;
 		const kind = response.kind ?? 'installation';
 		const session: AuthenticationSession = {
-			id: `othcloud-github:${kind}:${response.githubId}`,
+			id: `othcloud-github:${response.accountId ?? `${kind}:${response.githubId}`}`,
 			accessToken: response.token,
 			account: {
 				id: response.githubId,
@@ -293,11 +354,15 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 	 * good. `limited`: there is a token, but only the organization's GitHub App's, which
 	 * usually can't push.
 	 */
-	private offerToConnect(connectPath: string | undefined, limited: boolean): void {
+	private async offerToConnect(connectPath: string | undefined, limited: boolean): Promise<void> {
 		if (this.offeredConnect || this.connectWait || this.storageService.getBoolean(CONNECT_OFFER_DISMISSED_KEY, StorageScope.APPLICATION, false)) {
 			return;
 		}
 		this.offeredConnect = true;
+		// Nothing to offer when the server can't link GitHub accounts: the page would only say so
+		if (!(await this.isConnectAvailable())) {
+			return;
+		}
 		this.notificationService.prompt(
 			limited ? Severity.Info : Severity.Warning,
 			limited
@@ -314,6 +379,252 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		);
 	}
 
+	/** The GitHub account the signed-in OTHCloud user picked, if any. */
+	private getSelectedAccount(): string | undefined {
+		const user = this.accountService.getUser();
+		const raw = this.storageService.get(SELECTED_ACCOUNT_KEY, StorageScope.APPLICATION);
+		if (!user || !raw) {
+			return undefined;
+		}
+		try {
+			const stored = JSON.parse(raw) as { user?: string; account?: string };
+			return stored.user === user.id ? stored.account : undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
+	private setSelectedAccount(accountId: string | undefined): void {
+		const user = this.accountService.getUser();
+		if (!user || !accountId) {
+			this.storageService.remove(SELECTED_ACCOUNT_KEY, StorageScope.APPLICATION);
+			return;
+		}
+		this.storageService.store(SELECTED_ACCOUNT_KEY, JSON.stringify({ user: user.id, account: accountId }), StorageScope.APPLICATION, StorageTarget.MACHINE);
+	}
+
+	/** The user's GitHub accounts on OTHCloud; `undefined` from servers that can't list them yet. */
+	private async listAccounts(token: string): Promise<IGithubAccountsResponse | undefined> {
+		const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-accounts`, {
+			headers: { 'Authorization': `Bearer ${token}` },
+		});
+		if (res.status === 404 || res.status === 405) {
+			return undefined;
+		}
+		if (!res.ok) {
+			throw new OthcloudAccountApiError(res.status, `HTTP ${res.status}`);
+		}
+		return await res.json() as IGithubAccountsResponse;
+	}
+
+	/** Uses `accountId` from now on and tells every GitHub consumer. */
+	private async useAccount(accountId: string): Promise<boolean> {
+		const token = await this.accountService.getToken();
+		if (!token) {
+			return false;
+		}
+		const result = await this.requestToken(token, accountId).catch(() => undefined);
+		if (!result?.connected) {
+			this.notificationService.warn(localize('othcloud.github.accountUnavailable', "That GitHub account can't be used right now: it may have been removed from OTHCloud or its access revoked on GitHub."));
+			return false;
+		}
+		this.setSelectedAccount(accountId);
+		const session = this.adopt(result.response);
+		this.notificationService.info(localize('othcloud.github.switched', "OTerminal now uses GitHub as {0}.", session.account.label));
+		return true;
+	}
+
+	/**
+	 * Lists the user's GitHub accounts on OTHCloud (their own linked accounts and their
+	 * organizations' git providers) to pick the one OTerminal uses, or add another.
+	 */
+	private async switchAccount(): Promise<void> {
+		const token = await this.accountService.getToken();
+		if (!token) {
+			this.notificationService.info(localize('othcloud.github.signInFirst', "Sign in to OTHCloud first, then connect GitHub."));
+			return;
+		}
+
+		type Item = IQuickPickItem & { run: () => Promise<unknown> };
+		const removeButton = { iconClass: ThemeIcon.asClassName(Codicon.trash), tooltip: localize('othcloud.github.removeAccount', "Remove from OTHCloud") };
+		const picker = this.quickInputService.createQuickPick<Item>({ useSeparators: true });
+		picker.title = localize('othcloud.github.switchTitle', "GitHub Account");
+		picker.placeholder = localize('othcloud.github.switchPlaceholder', "Choose the GitHub account OTerminal uses for cloning, pushing and repositories");
+		picker.busy = true;
+		picker.show();
+
+		const load = async () => {
+			picker.busy = true;
+			let list: IGithubAccountsResponse | undefined;
+			try {
+				list = await this.listAccounts(token);
+			} catch (err) {
+				picker.hide();
+				this.notificationService.error(localize('othcloud.github.listFailed', "Couldn't load your GitHub accounts from OTHCloud: {0}", String((err as Error).message ?? err)));
+				return;
+			}
+			const current = this.cached?.response.accountId ?? this.getSelectedAccount();
+			const items: Array<Item | IQuickPickSeparator> = [];
+			if (list) {
+				if (list.accounts.length) {
+					items.push({ type: 'separator', label: localize('othcloud.github.accountsOnOthcloud', "On OTHCloud") });
+				}
+				for (const account of list.accounts) {
+					const traits = [
+						account.kind === 'user'
+							? (account.canPush ? localize('othcloud.github.traitPush', "clone and push") : localize('othcloud.github.traitReadOnly', "read-only"))
+							: localize('othcloud.github.traitApp', "organization GitHub App"),
+					];
+					if (account.deployable) {
+						traits.push(localize('othcloud.github.traitDeploy', "deploys"));
+					}
+					items.push({
+						id: account.id,
+						label: `${account.id === current ? '$(check) ' : ''}${account.label}`,
+						description: account.login && account.login !== account.label ? account.login : undefined,
+						detail: traits.join(' · '),
+						iconClass: account.id === current ? undefined : ThemeIcon.asClassName(account.kind === 'user' ? Codicon.account : Codicon.organization),
+						buttons: account.id.startsWith('user:') ? [removeButton] : undefined,
+						run: () => this.useAccount(account.id),
+					});
+				}
+			}
+			items.push({ type: 'separator', label: localize('othcloud.github.addAccount', "Add") });
+			items.push({
+				label: localize('othcloud.github.signInHere', "$(github) Sign in to GitHub in OTerminal..."),
+				detail: localize('othcloud.github.signInHereDetail', "Use any GitHub account; it is saved on OTHCloud so projects can deploy from it too"),
+				run: () => this.signInWithToken(),
+			});
+			if (list?.connectAvailable !== false) {
+				items.push({
+					label: localize('othcloud.github.connectOnWebsite', "$(globe) Connect a GitHub account on the OTHCloud website..."),
+					run: () => this.connect(list?.connectPath),
+				});
+			}
+			if (!list) {
+				items.push({ type: 'separator', label: localize('othcloud.github.serverOld', "This OTHCloud server can't list GitHub accounts yet") });
+			}
+			picker.items = items;
+			picker.busy = false;
+		};
+
+		const disposables = [
+			picker.onDidAccept(() => {
+				const item = picker.selectedItems[0];
+				picker.hide();
+				void item?.run();
+			}),
+			picker.onDidTriggerItemButton(async e => {
+				const accountId = e.item.id;
+				if (!accountId) {
+					return;
+				}
+				try {
+					const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-accounts?account=${encodeURIComponent(accountId)}`, {
+						method: 'DELETE',
+						headers: { 'Authorization': `Bearer ${token}` },
+					});
+					if (res.status === 409) {
+						this.notificationService.warn(localize('othcloud.github.lastLogin', "That GitHub account is how you sign in to OTHCloud, so it can't be removed."));
+						return;
+					}
+					if (!res.ok) {
+						throw new OthcloudAccountApiError(res.status, `HTTP ${res.status}`);
+					}
+				} catch (err) {
+					this.notificationService.error(localize('othcloud.github.removeFailed', "Couldn't remove the GitHub account: {0}", String((err as Error).message ?? err)));
+					return;
+				}
+				if (this.getSelectedAccount() === accountId || this.cached?.response.accountId === accountId) {
+					this.setSelectedAccount(undefined);
+					void this.removeSession(accountId);
+				}
+				await load();
+			}),
+			picker.onDidHide(() => {
+				for (const d of disposables) {
+					d.dispose();
+				}
+				picker.dispose();
+			}),
+		];
+
+		await load();
+	}
+
+	/**
+	 * Signs in to any GitHub account from OTerminal with a token the user creates on GitHub,
+	 * saves it on OTHCloud (as a linked account, and as a git provider so projects can deploy
+	 * from it) and switches to it.
+	 */
+	private async signInWithToken(): Promise<void> {
+		const othcloudToken = await this.accountService.getToken();
+		if (!othcloudToken) {
+			this.notificationService.info(localize('othcloud.github.signInFirst', "Sign in to OTHCloud first, then connect GitHub."));
+			return;
+		}
+
+		const create = await this.quickInputService.pick([
+			{ id: 'create', label: localize('othcloud.github.createToken', "$(link-external) Create a token on GitHub"), detail: localize('othcloud.github.createTokenDetail', "Opens GitHub signed in as the account you want, with the repo, workflow and read:org scopes filled in") },
+			{ id: 'have', label: localize('othcloud.github.haveToken', "$(key) I already have a token") },
+		], { title: localize('othcloud.github.signInTitle', "Sign in to GitHub") });
+		if (!create) {
+			return;
+		}
+		if (create.id === 'create') {
+			await this.openerService.open(URI.parse(NEW_TOKEN_URL), { openExternal: true });
+		}
+
+		const githubToken = await this.quickInputService.input({
+			title: localize('othcloud.github.signInTitle', "Sign in to GitHub"),
+			prompt: localize('othcloud.github.tokenPrompt', "Paste a GitHub token (classic with the repo scope, or fine-grained). It is stored on OTHCloud for this account."),
+			placeHolder: 'ghp_... / github_pat_...',
+			password: true,
+			ignoreFocusLost: true,
+			validateInput: async value => value.trim() ? undefined : localize('othcloud.github.tokenEmpty', "Paste the token"),
+		});
+		if (!githubToken?.trim()) {
+			return;
+		}
+
+		let account: IGithubAccount;
+		try {
+			const res = await fetch(`${getOthcloudBaseUrl()}/api/desktop/github-accounts`, {
+				method: 'POST',
+				headers: { 'Authorization': `Bearer ${othcloudToken}`, 'Content-Type': 'application/json' },
+				body: JSON.stringify({ token: githubToken.trim(), deployProvider: true }),
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => undefined) as { error?: string; message?: string } | undefined;
+				this.notificationService.error(describeAddAccountError(res.status, body?.error, body?.message));
+				return;
+			}
+			account = (await res.json() as { account: IGithubAccount }).account;
+		} catch (err) {
+			this.notificationService.error(localize('othcloud.github.addFailed', "Couldn't save the GitHub account on OTHCloud: {0}", String((err as Error).message ?? err)));
+			return;
+		}
+		await this.useAccount(account.id);
+	}
+
+	/**
+	 * Whether the server can link GitHub accounts at all: the connect page needs GitHub
+	 * sign-in configured there (the same public list the website's sign-in form reads).
+	 * Unknown (e.g. offline) counts as available, so the page can explain.
+	 */
+	private async isConnectAvailable(): Promise<boolean> {
+		try {
+			const res = await fetch(`${getOthcloudBaseUrl()}/api/trpc/settings.socialProviders`);
+			if (!res.ok) {
+				return true;
+			}
+			const body = await res.json() as { result?: { data?: { json?: { github?: boolean } } } };
+			return body.result?.data?.json?.github !== false;
+		} catch {
+			return true;
+		}
+	}
+
 	/**
 	 * Opens the website page that connects the user's GitHub account and waits for the
 	 * token it produces: every GitHub consumer gets it from then on without a reload.
@@ -321,6 +632,10 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 	private async connect(connectPath = this.cached?.response.connectPath ?? DEFAULT_CONNECT_PATH): Promise<void> {
 		if (!(await this.accountService.getToken())) {
 			this.notificationService.info(localize('othcloud.github.signInFirst', "Sign in to OTHCloud first, then connect GitHub."));
+			return;
+		}
+		if (!(await this.isConnectAvailable())) {
+			this.notificationService.warn(localize('othcloud.github.connectUnavailable', "{0} can't connect GitHub accounts yet: GitHub sign-in isn't set up on the server (GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET). Until then, OTerminal uses your organization's GitHub App.", getOthcloudBaseUrl()));
 			return;
 		}
 		const path = connectPath.startsWith('/') ? connectPath : DEFAULT_CONNECT_PATH;
@@ -354,6 +669,8 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 			}
 			if (result?.connected && result.response.kind === 'user') {
 				stop();
+				// The account just connected is the one to use, over any earlier pick
+				this.setSelectedAccount(result.response.accountId);
 				const session = this.adopt(result.response);
 				this.notificationService.info(localize('othcloud.github.connected', "GitHub connected as {0}.", session.account.label));
 				return;
@@ -366,4 +683,20 @@ export class OthcloudGithubAuthProvider extends Disposable implements IAuthentic
 		};
 		timer = setTimeout(check, CONNECT_POLL_MS);
 	}
+}
+
+/** Says why OTHCloud didn't take a GitHub token from "Sign in to GitHub". */
+function describeAddAccountError(status: number, code: string | undefined, message: string | undefined): string {
+	switch (code) {
+		case 'invalid_token':
+			return localize('othcloud.github.invalidToken', "GitHub didn't accept that token. Check it was copied whole and hasn't expired.");
+		case 'missing_repo_scope':
+			return localize('othcloud.github.missingRepoScope', "That token can't reach repositories. Create one with the repo scope.");
+		case 'linked_to_other_user':
+			return localize('othcloud.github.linkedToOther', "That GitHub account is already linked to a different OTHCloud account.");
+	}
+	if (status === 404 || status === 405) {
+		return localize('othcloud.github.addUnsupported', "This OTHCloud server can't save GitHub accounts from OTerminal yet.");
+	}
+	return localize('othcloud.github.addFailed', "Couldn't save the GitHub account on OTHCloud: {0}", message ?? `HTTP ${status}`);
 }

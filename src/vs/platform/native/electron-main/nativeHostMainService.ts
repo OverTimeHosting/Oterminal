@@ -1314,6 +1314,19 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	//#endregion
 
 	private windowById(windowId: number | undefined, fallbackCodeWindowId?: number): ICodeWindow | IAuxiliaryWindow | undefined {
+
+		// OTerminal: an auxiliary window is known by its web contents id and a workbench window by
+		// its BrowserWindow id. The counters differ (browser pages and their overlay mirrors create
+		// extra web contents), so an auxiliary window of the calling window can share its id with
+		// another workbench window. Its own requests (focus, maximize, window controls, close, ...)
+		// then went to that other window. The caller's own auxiliary window is what it means.
+		if (typeof windowId === 'number' && typeof fallbackCodeWindowId === 'number' && windowId !== fallbackCodeWindowId) {
+			const auxiliaryWindow = this.auxiliaryWindowById(windowId);
+			if (auxiliaryWindow?.parentId === fallbackCodeWindowId) {
+				return auxiliaryWindow;
+			}
+		}
+
 		return this.codeWindowById(windowId) ?? this.auxiliaryWindowById(windowId) ?? this.codeWindowById(fallbackCodeWindowId);
 	}
 

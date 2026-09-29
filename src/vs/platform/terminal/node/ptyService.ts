@@ -1032,6 +1032,14 @@ class XtermSerializer implements ITerminalSerializer {
 	private readonly _xterm: XtermTerminal;
 	private readonly _shellIntegrationAddon: ShellIntegrationAddon;
 	private _unicodeAddon?: XtermUnicode11Addon;
+	/**
+	 * OTerminal: the mouse report encoding the process asked for (DECSET 1006 SGR or 1016 SGR
+	 * pixels), undefined for the default encoding. The serialize addon restores which mouse events
+	 * are tracked (DECSET 1000/1002/1003) but not how they are encoded, so after a window reload a
+	 * reconnected TUI such as Claude Code was sent legacy `CSI M` reports it can't parse and clicks
+	 * in it stopped working. Tracked here so the replay can restore it.
+	 */
+	private _mouseEncoding: 1006 | 1016 | undefined;
 
 	constructor(
 		cols: number,
@@ -1055,6 +1063,24 @@ class XtermSerializer implements ITerminalSerializer {
 		this.setUnicodeVersion(unicodeVersion);
 		this._shellIntegrationAddon = new ShellIntegrationAddon(shellIntegrationNonce, true, undefined, undefined, logService);
 		this._xterm.loadAddon(this._shellIntegrationAddon);
+
+		// OTerminal: observe (never consume, the handlers return false) the sequences that change
+		// the mouse encoding, mirroring xterm.js: setting 1006/1016 selects it, resetting either one
+		// or a full reset (RIS) goes back to the default encoding.
+		const trackMouseEncoding = (params: (number | number[])[], enable: boolean): boolean => {
+			for (const param of params) {
+				if (param === 1006 || param === 1016) {
+					this._mouseEncoding = enable ? param : undefined;
+				}
+			}
+			return false;
+		};
+		this._xterm.parser.registerCsiHandler({ prefix: '?', final: 'h' }, params => trackMouseEncoding(params, true));
+		this._xterm.parser.registerCsiHandler({ prefix: '?', final: 'l' }, params => trackMouseEncoding(params, false));
+		this._xterm.parser.registerEscHandler({ final: 'c' }, () => {
+			this._mouseEncoding = undefined;
+			return false;
+		});
 	}
 
 	freeRawReviveBuffer(): void {
@@ -1093,6 +1119,10 @@ class XtermSerializer implements ITerminalSerializer {
 			serialized = this._rawReviveBuffer;
 		} else {
 			serialized = serialize.serialize(options);
+			// OTerminal: restore the mouse encoding the serialize addon leaves out (see _mouseEncoding)
+			if (!options.excludeModes && this._mouseEncoding !== undefined) {
+				serialized += `\x1b[?${this._mouseEncoding}h`;
+			}
 		}
 		return {
 			events: [

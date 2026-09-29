@@ -7,6 +7,7 @@ import './media/browser.css';
 import { localize } from '../../../../nls.js';
 import { $, addDisposableListener, Dimension, EventType, IDomNodePagePosition, IDomPosition, registerExternalFocusChecker } from '../../../../base/browser/dom.js';
 import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { RawContextKey, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
@@ -554,14 +555,14 @@ export class BrowserEditor extends EditorPane {
 			return;
 		}
 		this._lastMirrorKey = key;
-		void this._model.setOverlayMirrors(this.group.windowId, rects, getZoomFactor(this.window));
+		void this._model.setOverlayMirrors(this.group.windowId, rects, getZoomFactor(this.window), mainWindow.vscodeWindowId);
 	}
 
 	private clearOverlayMirrors(): void {
 		this._mirroredOverlays = [];
 		if (this._model && this._lastMirrorKey !== '[]') {
 			this._lastMirrorKey = '[]';
-			void this._model.setOverlayMirrors(this.group.windowId, [], getZoomFactor(this.window));
+			void this._model.setOverlayMirrors(this.group.windowId, [], getZoomFactor(this.window), mainWindow.vscodeWindowId);
 		}
 	}
 
@@ -888,6 +889,9 @@ export class BrowserEditor extends EditorPane {
 
 			void this._model.layout({
 				windowId: this.group.windowId,
+				// OTerminal: an auxiliary window's id can equal another workbench window's id; the
+				// main process needs to know which workbench window is asking to tell them apart
+				mainWindowId: mainWindow.vscodeWindowId,
 				x: containerRect.left,
 				y: containerRect.top,
 				width: containerRect.width,

@@ -110,7 +110,7 @@ export interface IBrowserViewModel extends IDisposable {
 	layout(bounds: IBrowserViewBounds): Promise<void>;
 	setVisible(visible: boolean): Promise<void>;
 	/** See {@link IBrowserViewService.setOverlayMirrors}. */
-	setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void>;
+	setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number, mainWindowId?: number): Promise<void>;
 	loadURL(url: string): Promise<void>;
 	goBack(): Promise<void>;
 	goForward(): Promise<void>;
@@ -291,8 +291,8 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 		return this.browserViewService.setVisible(this.id, visible);
 	}
 
-	async setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void> {
-		return this.browserViewService.setOverlayMirrors(windowId, this.id, rects, zoomFactor);
+	async setOverlayMirrors(windowId: number, rects: IBrowserViewOverlayRect[], zoomFactor: number, mainWindowId?: number): Promise<void> {
+		return this.browserViewService.setOverlayMirrors(windowId, this.id, rects, zoomFactor, mainWindowId);
 	}
 
 	async loadURL(url: string): Promise<void> {

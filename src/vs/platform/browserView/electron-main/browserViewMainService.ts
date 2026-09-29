@@ -7,15 +7,15 @@ import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { IBrowserViewBounds, IBrowserViewKeyDownEvent, IBrowserViewState, IBrowserViewService, BrowserViewStorageScope, IBrowserViewCaptureScreenshotOptions, IBrowserViewFindInPageOptions, IBrowserViewOverlayRect } from '../common/browserView.js';
-import { BrowserWindow, webContents } from 'electron';
 import { BrowserOverlayMirror } from './browserOverlayMirror.js';
 import { ICDPTarget, CDPBrowserVersion, CDPWindowBounds, CDPTargetInfo, ICDPConnection, ICDPBrowserTarget } from '../common/cdp/types.js';
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
 import { createDecorator, IInstantiationService } from '../../instantiation/common/instantiation.js';
-import { BrowserView } from './browserView.js';
+import { BrowserView, resolveBrowserViewWindow } from './browserView.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { BrowserViewUri } from '../common/browserViewUri.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
+import { IAuxiliaryWindowsMainService } from '../../auxiliaryWindow/electron-main/auxiliaryWindows.js';
 import { BrowserSession } from './browserSession.js';
 import { IProductService } from '../../product/common/productService.js';
 import { CDPBrowserProxy } from '../common/cdp/proxy.js';
@@ -50,6 +50,7 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		@IEnvironmentMainService private readonly environmentMainService: IEnvironmentMainService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
+		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
 		@IProductService private readonly productService: IProductService
 	) {
 		super();
@@ -285,23 +286,44 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 		return this._getBrowserView(id).setVisible(visible);
 	}
 
+	/** Keyed by BrowserWindow id, which (unlike the ids renderers use) is unique across all windows. */
 	private readonly overlayMirrors = this._register(new DisposableMap<number, BrowserOverlayMirror>());
+	/** The window (BrowserWindow id) each owner (browser view) last had mirrors in. */
+	private readonly overlayMirrorWindows = new Map<string, number>();
 
-	async setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number): Promise<void> {
-		let mirror = this.overlayMirrors.get(windowId);
+	async setOverlayMirrors(windowId: number, owner: string, rects: IBrowserViewOverlayRect[], zoomFactor: number, mainWindowId?: number): Promise<void> {
+		// OTerminal: resolve the window the same way the page itself is placed (see
+		// resolveBrowserViewWindow): an auxiliary window's id can equal another workbench window's
+		// id, and mirrors put into that other window sat invisibly on top of it.
+		const win = resolveBrowserViewWindow(windowId, mainWindowId, this.windowsMainService, this.auxiliaryWindowsMainService)?.win;
+		const key = win && !win.isDestroyed() ? win.id : undefined;
+
+		// OTerminal: a browser editor moved to another window (e.g. dragged out into its own
+		// window) asks for its mirrors there from then on. Its mirrors in the window it left
+		// would otherwise stay stacked on top of that window for good, invisible, swallowing
+		// clicks and keyboard focus over whatever is underneath.
+		const previousKey = this.overlayMirrorWindows.get(owner);
+		if (previousKey !== undefined && previousKey !== key) {
+			this.overlayMirrors.get(previousKey)?.update(owner, [], zoomFactor);
+		}
+		if (key !== undefined && rects.length) {
+			this.overlayMirrorWindows.set(owner, key);
+		} else {
+			this.overlayMirrorWindows.delete(owner);
+		}
+
+		if (!win || key === undefined) {
+			return;
+		}
+
+		let mirror = this.overlayMirrors.get(key);
 		if (!mirror) {
 			if (!rects.length) {
 				return;
 			}
-			// A workbench window is known by its id, an auxiliary window by its web contents' id
-			const win = this.windowsMainService.getWindowById(windowId)?.win
-				?? (() => { const contents = webContents.fromId(windowId); return contents ? BrowserWindow.fromWebContents(contents) : null; })();
-			if (!win || win.isDestroyed()) {
-				return;
-			}
 			mirror = new BrowserOverlayMirror(win);
-			this.overlayMirrors.set(windowId, mirror);
-			win.once('closed', () => this.overlayMirrors.deleteAndDispose(windowId));
+			this.overlayMirrors.set(key, mirror);
+			win.once('closed', () => this.overlayMirrors.deleteAndDispose(key));
 		}
 		mirror.update(owner, rects, zoomFactor);
 	}

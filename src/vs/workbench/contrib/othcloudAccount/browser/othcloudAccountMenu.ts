@@ -8,6 +8,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { IMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { getOthcloudRoleLabel, IOthcloudAccountService } from '../common/othcloudAccountService.js';
+import { SWITCH_GITHUB_ACCOUNT_COMMAND_ID } from './othcloudGithubAuthProvider.js';
 
 const SIGN_IN_COMMAND = 'othcloud.account.signIn';
 const SIGN_OUT_COMMAND = 'othcloud.account.signOut';
@@ -61,6 +62,14 @@ export class OthcloudAccountMenuContribution extends Disposable implements IWork
 			items.push({
 				group: '4_othcloud',
 				order: 2,
+				command: {
+					id: SWITCH_GITHUB_ACCOUNT_COMMAND_ID,
+					title: localize('othcloud.account.menuSwitchGithub', 'Switch GitHub Account...'),
+				},
+			});
+			items.push({
+				group: '4_othcloud',
+				order: 3,
 				command: {
 					id: SIGN_OUT_COMMAND,
 					title: localize('othcloud.account.menuSignOut', 'Sign out of OTHCloud'),

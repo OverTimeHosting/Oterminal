@@ -409,13 +409,14 @@ export class BrowserView extends Disposable implements ICDPTarget {
 	 * Update the layout bounds of this view
 	 */
 	layout(bounds: IBrowserViewBounds): void {
-		if (this._window?.win?.id !== bounds.windowId) {
-			const newWindow = this.windowById(bounds.windowId);
-			if (newWindow) {
-				this._window?.win?.contentView.removeChildView(this._view);
-				this._window = newWindow;
-				newWindow.win?.contentView.addChildView(this._view);
-			}
+		// OTerminal: compare the resolved windows, not `win.id` with `bounds.windowId`: for an
+		// auxiliary window those are its BrowserWindow id and its web contents id, which never
+		// match, so the page was taken off and put back on its window on every layout.
+		const newWindow = this.windowById(bounds.windowId, bounds.mainWindowId);
+		if (newWindow && newWindow !== this._window) {
+			this._window?.win?.contentView.removeChildView(this._view);
+			this._window = newWindow;
+			newWindow.win?.contentView.addChildView(this._view);
 		}
 
 		this._view.webContents.setZoomFactor(bounds.zoomFactor);
@@ -698,28 +699,38 @@ export class BrowserView extends Disposable implements ICDPTarget {
 		return true;
 	}
 
-	private windowById(windowId: number | undefined): ICodeWindow | IAuxiliaryWindow | undefined {
-		return this.codeWindowById(windowId) ?? this.auxiliaryWindowById(windowId);
+	private windowById(windowId: number | undefined, mainWindowId: number | undefined): ICodeWindow | IAuxiliaryWindow | undefined {
+		return resolveBrowserViewWindow(windowId, mainWindowId, this.windowsMainService, this.auxiliaryWindowsMainService);
+	}
+}
+
+/**
+ * Finds the window a workbench renderer means by `windowId`.
+ *
+ * OTerminal: workbench windows are known by their BrowserWindow id and auxiliary windows (editors
+ * or terminals moved into their own window) by their web contents id. Those are two different
+ * counters, and browser pages and overlay mirrors create extra web contents, so an auxiliary
+ * window of one workbench window can have the same id as another workbench window (say window 6,
+ * and a window pulled out of window 1 whose web contents are #6). Looking up workbench windows
+ * first then put a page meant for the auxiliary window into that other workbench window, on top of
+ * its content, where it swallowed clicks and typing, while the auxiliary window only showed a still
+ * picture of the page. A renderer only ever lays out pages in its own workbench window and that
+ * window's auxiliary windows, so `mainWindowId` (the asking workbench window) tells them apart.
+ */
+export function resolveBrowserViewWindow(windowId: number | undefined, mainWindowId: number | undefined, windowsMainService: IWindowsMainService, auxiliaryWindowsMainService: IAuxiliaryWindowsMainService): ICodeWindow | IAuxiliaryWindow | undefined {
+	if (typeof windowId !== 'number') {
+		return undefined;
 	}
 
-	private codeWindowById(windowId: number | undefined): ICodeWindow | undefined {
-		if (typeof windowId !== 'number') {
-			return undefined;
-		}
-
-		return this.windowsMainService.getWindowById(windowId);
-	}
-
-	private auxiliaryWindowById(windowId: number | undefined): IAuxiliaryWindow | undefined {
-		if (typeof windowId !== 'number') {
-			return undefined;
-		}
-
+	const auxiliaryWindowById = () => {
 		const contents = webContents.fromId(windowId);
-		if (!contents) {
-			return undefined;
-		}
+		return contents ? auxiliaryWindowsMainService.getWindowByWebContents(contents) : undefined;
+	};
 
-		return this.auxiliaryWindowsMainService.getWindowByWebContents(contents);
+	if (typeof mainWindowId === 'number') {
+		return windowId === mainWindowId ? windowsMainService.getWindowById(windowId) : auxiliaryWindowById();
 	}
+
+	// Caller unknown: the old guess, workbench windows first
+	return windowsMainService.getWindowById(windowId) ?? auxiliaryWindowById();
 }
